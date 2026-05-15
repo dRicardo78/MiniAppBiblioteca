@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+   <meta charset="UTF-8">
+   <title>Biblioteca Inteligente</title>
+   <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+   <h1>Biblioteca Universitaria Inteligente</h1>
+
+   <!-- Registrar libro -->
+   <section>
+       <h2>Registrar Libro</h2>
+
+       <input type="text" id="tituloLibro" placeholder="Título del libro">
+
+       <button onclick="registrarLibro()">
+           Registrar Libro
+       </button>
+   </section>
+
+   <!-- Registrar estudiante -->
+   <section>
+       <h2>Registrar Estudiante</h2>
+
+       <input type="text" id="nombreEstudiante" placeholder="Nombre">
+
+       <input type="text" id="idEstudiante" placeholder="Número de identificación">
+
+       <button onclick="registrarEstudiante()">
+           Registrar Estudiante
+       </button>
+   </section>
+
+   <!-- Realizar prestamo -->
+   <section>
+       <h2>Realizar Préstamo</h2>
+
+       <input type="text" id="prestamoLibro" placeholder="Título del libro">
+
+       <input type="text" id="prestamoID" placeholder="Identificación estudiante">
+
+       <button onclick="realizarPrestamo()">
+           Prestar Libro
+       </button>
+   </section>
+
+   <!-- Mostrar disponibilidad -->
+   <section>
+       <h2>Disponibilidad</h2>
+
+       <button onclick="mostrarLibros()">
+           Mostrar Libros
+       </button>
+
+       <ul id="listaLibros"></ul>
+   </section>
+
+   <script src="app.js"></script>
+
+</body>
+</html>
