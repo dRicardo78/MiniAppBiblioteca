@@ -9,98 +9,229 @@
 <body>
   <div class="page">
     <header class="page-header">
-      <h1>Sistema de Gestión de Biblioteca UDI</h1>
+      <div style="display:flex;align-items:center;gap:1rem;justify-content:center;">
+        <div style="width:64px;height:48px;background:#e6eefc;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;border-radius:8px">Logo</div>
+        <button id="btnBack" style="display:none;position:absolute;left:1rem;top:1.5rem;">Atrás</button>
+        <h1>Gestión de Evidencias Académicas</h1>
+      </div>
     </header>
 
     <main class="layout">
-      <section class="panel panel-form">
-        <h2>Formulario de libro</h2>
-        <form id="bookForm" autocomplete="off">
+      <div id="moduleSelector" class="module-selector">
+        <button id="openLibrary" class="btn">Abrir Biblioteca</button>
+        <button id="openEvidences" class="btn btn-primary">Gestión de Evidencias</button>
+      </div>
+      <aside id="sidebar" class="panel sidebar" aria-label="Menú lateral">
+        <nav>
+          <ul style="list-style:none;padding:0;margin:0;">
+            <li>
+              <button class="menu-toggle" data-target="submenu-estudiantes" aria-expanded="false">Estudiantes</button>
+              <ul id="submenu-estudiantes" class="submenu" style="display:none;margin:0.5rem 0 1rem 0;padding-left:1rem;">
+                <li><button class="menu-item">Gestión de Evidencias</button></li>
+              </ul>
+            </li>
+            <li>
+              <button class="menu-toggle" data-target="submenu-tutores" aria-expanded="false">Tutores Académicos</button>
+              <ul id="submenu-tutores" class="submenu" style="display:none;margin:0.5rem 0 1rem 0;padding-left:1rem;">
+                <li><button class="menu-item">Subir Preguntas</button></li>
+                <li><button class="menu-item">Revisar Evidencias</button></li>
+                <li><button class="menu-item">Informes</button></li>
+              </ul>
+            </li>
+            <li>
+              <button class="menu-toggle" data-target="submenu-asesores" aria-expanded="false">Asesores Pedagógicos</button>
+              <ul id="submenu-asesores" class="submenu" style="display:none;margin:0.5rem 0 1rem 0;padding-left:1rem;">
+                <li><button class="menu-item">Observaciones</button></li>
+              </ul>
+            </li>
+          </ul>
+        </nav>
+        <div style="margin-top:1.5rem;text-align:center;">
+          <button id="btnSalir" style="min-width:120px;">Salir</button>
+        </div>
+      </aside>
+
+      <!-- Biblioteca panel (restaurado) -->
+      <section id="libraryPanel" class="panel panel-form" style="display:none;">
+        <h2>Biblioteca — Formulario de libro</h2>
+        <form id="bookFormLib" autocomplete="off">
           <div class="field-grid">
             <div class="field-group">
-              <label for="fechaIngreso">Fecha de Ingreso</label>
-              <input type="date" id="fechaIngreso" name="fechaIngreso" readonly>
+              <label for="fechaIngresoLib">Fecha de Ingreso</label>
+              <input type="date" id="fechaIngresoLib" name="fechaIngresoLib" readonly>
             </div>
 
             <div class="field-group">
-              <label for="idLibro">ID Libro</label>
-              <input type="text" id="idLibro" maxlength="10" required>
+              <label for="idLibroLib">ID Libro</label>
+              <input type="text" id="idLibroLib" maxlength="10" required>
               <span class="field-note">Máximo 10 caracteres.</span>
             </div>
 
             <div class="field-group">
-              <label for="nombreLibro">Nombre del Libro</label>
-              <input type="text" id="nombreLibro" maxlength="100" required>
+              <label for="nombreLibroLib">Nombre del Libro</label>
+              <input type="text" id="nombreLibroLib" maxlength="100" required>
               <span class="field-note">Máximo 100 caracteres.</span>
             </div>
 
             <div class="field-group">
-              <label for="editorial">Editorial</label>
-              <input type="text" id="editorial" maxlength="100">
+              <label for="editorialLib">Editorial</label>
+              <input type="text" id="editorialLib" maxlength="100">
               <span class="field-note">Máximo 100 caracteres.</span>
             </div>
 
             <div class="field-group">
-              <label for="autor">Autor</label>
-              <input type="text" id="autor" maxlength="100">
+              <label for="autorLib">Autor</label>
+              <input type="text" id="autorLib" maxlength="100">
               <span class="field-note">Máximo 100 caracteres.</span>
             </div>
 
             <div class="field-group">
-              <label for="numCopias">Número de Copias</label>
-              <input type="number" id="numCopias" min="1" max="999" required>
+              <label for="numCopiasLib">Número de Copias</label>
+              <input type="number" id="numCopiasLib" min="1" max="999" required>
               <span class="field-note">Sólo valores numéricos.</span>
             </div>
           </div>
 
           <div class="button-grid">
-            <button type="button" id="btnNuevo">Nuevo</button>
-            <button type="button" id="btnEditar">Editar</button>
-            <button type="button" id="btnGuardar">Guardar</button>
-            <button type="button" id="btnEliminar">Eliminar</button>
-            <button type="reset">Limpiar</button>
+            <button type="button" id="btnNuevoLib">Nuevo</button>
+            <button type="button" id="btnEditarLib">Editar</button>
+            <button type="button" id="btnGuardarLib">Guardar</button>
+            <button type="button" id="btnEliminarLib">Eliminar</button>
+            <button type="reset" id="btnLimpiarLib">Limpiar</button>
           </div>
 
-          <div id="messageBox" class="message" role="status" aria-live="polite"></div>
+          <div id="messageBoxLib" class="message" role="status" aria-live="polite"></div>
         </form>
+        <div style="margin-top:1rem;">
+          <h3>Grilla de libros</h3>
+          <p class="hint">Seleccione una fila para cargar el libro en el formulario y editar o eliminar.</p>
+          <div class="table-wrap">
+            <table id="booksTableLib">
+              <thead>
+                <tr>
+                  <th>ID Libro</th>
+                  <th>Nombre Libro</th>
+                  <th>Editorial</th>
+                  <th>Autor</th>
+                  <th>Número de Copias</th>
+                  <th>Fecha Ingreso</th>
+                </tr>
+              </thead>
+              <tbody>
+              </tbody>
+            </table>
+          </div>
+          <div class="secondary-actions">
+            <button type="button" id="btnCancelarLib">Cancelar</button>
+            <button type="button" id="btnMostrarLib">Mostrar datos</button>
+            <button type="button" id="btnSalirLib">Salir</button>
+          </div>
+        </div>
       </section>
 
-      <section class="panel panel-table">
-        <h2>Grilla de libros</h2>
-        <p class="hint">Seleccione una fila para cargar el libro en el formulario y editar o eliminar.</p>
-        <div class="table-wrap">
-          <table id="booksTable">
+      <!-- Evidences panel -->
+      <section id="evidencePanel" class="panel evidence-panel" style="display:none;">
+        <h2>Estudiantes — Evidencias / Bitácoras</h2>
+
+        <div class="evidence-form" style="display:grid;grid-template-columns:1fr 320px;gap:1rem;">
+          <form id="evidenceForm" autocomplete="off">
+            <div class="field-group">
+              <label for="listaEstudiantes">Lista combo</label>
+              <select id="listaEstudiantes" class="input-select">
+                <option value="">-- Seleccione --</option>
+                <option>xxxx</option>
+                <option>yyyy</option>
+              </select>
+            </div>
+
+            <div class="field-grid" style="grid-template-columns:1fr 1fr;">
+              <div class="field-group">
+                <label for="tipo">Tipo</label>
+                <select id="tipo" class="input-select">
+                  <option value="">-- Seleccione --</option>
+                  <option>Informe</option>
+                  <option>Proyecto</option>
+                  <option>Bitácora</option>
+                </select>
+              </div>
+
+              <div class="field-group">
+                <label for="fecha">Fecha</label>
+                <input type="text" id="fecha" class="input-text" readonly>
+              </div>
+            </div>
+
+            <div class="field-group">
+              <label for="nombreEvidencia">Nombre Evidencia</label>
+              <input type="text" id="nombreEvidencia" class="input-text">
+            </div>
+
+            <div class="field-group">
+              <label for="descripcion">Descripción</label>
+              <textarea id="descripcion" class="input-textarea" rows="4"></textarea>
+            </div>
+
+            <div style="display:flex;gap:0.5rem;align-items:center;margin-top:0.5rem;">
+              <input type="file" id="archivo" accept=".pdf,.doc,.docx,.xls,.xlsx" style="display:none">
+              <button type="button" id="btnCargar">Cargar evidencia</button>
+              <span id="archivoNombre" class="field-note">Ningún archivo cargado</span>
+            </div>
+
+            <div class="button-grid" style="grid-template-columns:repeat(4,1fr);margin-top:1rem;">
+              <button type="button" id="btnCancelar">Cancelar</button>
+              <button type="button" id="btnNueva">Nueva Evidencia</button>
+              <button type="button" id="btnModificar">Modificar</button>
+              <button type="button" id="btnEliminar">Eliminar</button>
+            </div>
+          </form>
+
+          <aside style="border-left:1px solid var(--border);padding-left:1rem;">
+            <div style="display:flex;justify-content:flex-end;gap:0.5rem;">
+              <button id="btnAceptar" class="btn-primary">Aceptar</button>
+            </div>
+            <div style="margin-top:1rem;font-size:0.95rem;color:var(--muted);">Instrucciones: Seleccione estudiante, complete los campos y Cargar evidencia antes de Aceptar.</div>
+          </aside>
+        </div>
+
+        <div style="margin-top:1rem;" class="table-wrap">
+          <table id="evidenceTable">
             <thead>
               <tr>
-                <th>ID Libro</th>
-                <th>Nombre Libro</th>
-                <th>Editorial</th>
-                <th>Autor</th>
-                <th>Número de Copias</th>
-                <th>Fecha Ingreso</th>
+                <th>Id Evidencia</th>
+                <th>Nom. Evidencia</th>
+                <th>Tipo</th>
+                <th>Fecha de Carga</th>
+                <th>Descripción</th>
+                <th>Archivo</th>
               </tr>
             </thead>
             <tbody>
-              <!-- Aquí se insertarán filas dinámicamente -->
             </tbody>
           </table>
-        </div>
-        <div class="secondary-actions">
-          <button type="button" id="btnCancelar">Cancelar</button>
-          <button type="button" id="btnMostrar">Mostrar datos</button>
-          <button type="button" id="btnSalir">Salir</button>
         </div>
       </section>
     </main>
   </div>
 
-  <div id="confirmModal" class="modal-overlay" aria-hidden="true">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-      <h3 id="modalTitle">Confirmar edición</h3>
-      <p>¿Deseas guardar los cambios del libro seleccionado?</p>
+  <!-- Modales -->
+  <div id="modalSalir" class="modal-overlay" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true">
+      <h3>Confirmar salida</h3>
+      <p>¿Desea salir del sistema?</p>
       <div class="modal-actions">
-        <button type="button" id="modalYes" class="btn primary">Sí</button>
-        <button type="button" id="modalNo" class="btn secondary">No</button>
+        <button id="salirYes" class="btn">Sí</button>
+        <button id="salirNo" class="btn">No</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modalEliminar" class="modal-overlay" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true">
+      <h3>Confirmar eliminación</h3>
+      <p>¿Desea eliminar la evidencia seleccionada?</p>
+      <div class="modal-actions">
+        <button id="elimYes" class="btn btn-danger">Eliminar</button>
+        <button id="elimNo" class="btn">Cancelar</button>
       </div>
     </div>
   </div>
