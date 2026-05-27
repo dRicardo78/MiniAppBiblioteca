@@ -1,0 +1,55 @@
+// models/Evidencia.js
+// Esquema de datos para Evidencias Académicas
+
+const mongoose = require('mongoose');
+
+const evidenciaSchema = new mongoose.Schema(
+  {
+    estudiante: {
+      type: String,
+      required: [true, 'El estudiante es obligatorio'],
+      trim: true,
+    },
+    tipo: {
+      type: String,
+      enum: ['Informe', 'Proyecto', 'Bitácora'],
+      required: [true, 'El tipo de evidencia es obligatorio'],
+    },
+    nombre: {
+      type: String,
+      required: [true, 'El nombre de la evidencia es obligatorio'],
+      trim: true,
+      maxlength: [200, 'Nombre máximo 200 caracteres'],
+    },
+    descripcion: {
+      type: String,
+      required: [true, 'La descripción es obligatoria'],
+      trim: true,
+      maxlength: [1000, 'Descripción máximo 1000 caracteres'],
+    },
+    fechaCarga: {
+      type: Date,
+      default: Date.now,
+    },
+    archivo: {
+      nombre: String,
+      url: String,
+      tipo: String,
+      tamaño: Number,
+    },
+    estado: {
+      type: String,
+      enum: ['Pendiente', 'Revisada', 'Aprobada', 'Rechazada'],
+      default: 'Pendiente',
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+// Índices para búsquedas
+evidenciaSchema.index({ estudiante: 1, tipo: 1 });
+evidenciaSchema.index({ nombre: 'text' });
+
+module.exports = mongoose.model('Evidencia', evidenciaSchema);

@@ -1,6 +1,5 @@
 // Evidences management (cliente)
-let evidencias = JSON.parse(localStorage.getItem('evidencias') || '[]');
-let nextId = (evidencias.reduce((m, e) => Math.max(m, e.id), 0) || 0) + 1;
+let evidencias = [];
 let selectedId = null;
 let editingId = null;
 let currentFile = null;
@@ -29,10 +28,6 @@ const salirNo = document.getElementById('salirNo');
 const modalEliminar = document.getElementById('modalEliminar');
 const elimYes = document.getElementById('elimYes');
 const elimNo = document.getElementById('elimNo');
-
-function saveState() {
-  localStorage.setItem('evidencias', JSON.stringify(evidencias));
-}
 
 function showMessage(text, timeout = 2500) {
   let box = document.getElementById('messageBox');
@@ -71,8 +66,17 @@ function clearSelection() {
   if (sel) sel.classList.remove('selected');
 }
 
-function renderTable() {
+async function renderTable() {
   tableBody.innerHTML = '';
+
+  try {
+    evidencias = await EvidenciasAPI.getAll();
+  } catch (error) {
+    showMessage('Error cargando evidencias desde MongoDB.');
+    console.error(error);
+    return;
+  }
+
   if (!evidencias.length) {
     const r = document.createElement('tr');
     const c = document.createElement('td');
@@ -85,23 +89,27 @@ function renderTable() {
 
   evidencias.forEach(ev => {
     const r = document.createElement('tr');
-    r.dataset.id = ev.id;
+    r.dataset.id = ev._id;
     r.innerHTML = `
-      <td>${ev.id}</td>
+      <td>${escapeHtml(ev._id)}</td>
       <td>${escapeHtml(ev.nombre)}</td>
       <td>${escapeHtml(ev.tipo)}</td>
-      <td>${ev.fecha}</td>
+      <td>${Utils.formatDate(ev.fechaCarga)}</td>
       <td>${escapeHtml(ev.descripcion || '')}</td>
-      <td>${ev.archivo && ev.archivo.name ? `<a href="${ev.archivo.url}" target="_blank">${escapeHtml(ev.archivo.name)}</a>` : '-'}</td>
+      <td>${ev.archivo && ev.archivo.nombre ? `<a href="${escapeHtml(ev.archivo.url)}" target="_blank">${escapeHtml(ev.archivo.nombre)}</a>` : '-'}</td>
     `;
-    r.addEventListener('click', () => selectRow(r, ev.id));
+    r.addEventListener('click', () => selectRow(r, ev._id));
     tableBody.appendChild(r);
   });
 }
 
-function escapeHtml(s){
-  return String(s).replace(/[&<>"']/g, (m)=>({
-    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (m) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
   }[m]));
 }
 
@@ -122,7 +130,7 @@ archivoInput.addEventListener('change', (e) => {
     archivoInput.value = '';
     return;
   }
-  currentFile = { name: file.name, size: file.size, mime: file.type, url: URL.createObjectURL(file) };
+  currentFile = { nombre: file.name, tamaño: file.size, tipo: file.type, url: URL.createObjectURL(file) };
   archivoNombre.textContent = file.name;
 });
 
@@ -131,95 +139,104 @@ btnNueva.addEventListener('click', () => {
   showMessage('Formulario limpio. Fecha actualizada.');
 });
 
-btnAceptar.addEventListener('click', () => {
+btnAceptar.addEventListener('click', async () => {
+  const estudiante = listaEstudiantes.value.trim();
   const nombre = nombreEvidencia.value.trim();
   const tipoVal = tipo.value;
+  const descripcionTexto = descripcion.value.trim();
+
+  if (!estudiante) { alert('Seleccione un estudiante.'); return; }
   if (!tipoVal) { alert('Seleccione tipo de evidencia.'); return; }
   if (!nombre) { alert('Ingrese nombre de la evidencia.'); return; }
+  if (!descripcionTexto) { alert('Ingrese descripción de la evidencia.'); return; }
   if (!currentFile && !editingId) { alert('Cargue un archivo antes de aceptar.'); return; }
 
-  if (editingId) {
-    // actualizar
-    const idx = evidencias.findIndex(e => e.id === editingId);
-    if (idx === -1) { alert('No se encontró la evidencia a modificar.'); return; }
-    evidencias[idx].tipo = tipoVal;
-    evidencias[idx].nombre = nombre;
-    evidencias[idx].descripcion = descripcion.value.trim();
-    if (currentFile) evidencias[idx].archivo = currentFile;
-    saveState();
-    renderTable();
-    clearForm();
-    showMessage('Evidencia modificada.');
-    return;
-  }
+  try {
+    if (editingId) {
+      await EvidenciasAPI.update(editingId, {
+        estudiante,
+        tipo: tipoVal,
+        nombre,
+        descripcion: descripcionTexto,
+        archivo: currentFile,
+      });
+      showMessage('Evidencia modificada con éxito.');
+    } else {
+      await EvidenciasAPI.create({
+        estudiante,
+        tipo: tipoVal,
+        nombre,
+        descripcion: descripcionTexto,
+        archivo: currentFile,
+      });
+      showMessage('Evidencia guardada en MongoDB correctamente.');
+    }
 
-  const nueva = {
-    id: nextId++,
-    estudiante: listaEstudiantes.value || null,
-    tipo: tipoVal,
-    nombre: nombre,
-    descripcion: descripcion.value.trim(),
-    fecha: new Date().toLocaleDateString(),
-    archivo: currentFile
-  };
-  evidencias.push(nueva);
-  saveState();
-  renderTable();
-  clearForm();
-  showMessage('Evidencia agregada.');
+    await renderTable();
+    clearForm();
+  } catch (error) {
+    showMessage('Error guardando evidencia: ' + error.message);
+    console.error(error);
+  }
 });
 
 btnModificar.addEventListener('click', () => {
   if (!selectedId) { alert('Seleccione una evidencia en la grilla.'); return; }
-  const ev = evidencias.find(e => e.id === selectedId);
+  const ev = evidencias.find(e => e._id === selectedId);
   if (!ev) { alert('Evidencia no encontrada.'); return; }
-  // cargar en formulario
+
+  listaEstudiantes.value = ev.estudiante || '';
   tipo.value = ev.tipo;
   nombreEvidencia.value = ev.nombre;
   descripcion.value = ev.descripcion || '';
   if (ev.archivo) {
-    archivoNombre.textContent = ev.archivo.name;
+    archivoNombre.textContent = ev.archivo.nombre || 'Archivo cargado';
     currentFile = ev.archivo;
   } else {
     archivoNombre.textContent = 'Ningún archivo cargado';
     currentFile = null;
   }
-  editingId = ev.id;
+  editingId = ev._id;
   showMessage('Modo edición: modifique y presione Aceptar.');
 });
 
 btnEliminar.addEventListener('click', () => {
   if (!selectedId) { alert('Seleccione una evidencia en la grilla.'); return; }
   modalEliminar.classList.add('active');
-  modalEliminar.setAttribute('aria-hidden','false');
+  modalEliminar.setAttribute('aria-hidden', 'false');
 });
 
-elimYes.addEventListener('click', () => {
-  const idx = evidencias.findIndex(e => e.id === selectedId);
-  if (idx !== -1) {
-    evidencias.splice(idx,1);
-    saveState();
-    renderTable();
+elimYes.addEventListener('click', async () => {
+  if (!selectedId) return;
+
+  try {
+    await EvidenciasAPI.delete(selectedId);
+    await renderTable();
     clearForm();
-    showMessage('Evidencia eliminada.');
+    showMessage('Evidencia eliminada correctamente.');
+  } catch (error) {
+    showMessage('Error eliminando evidencia: ' + error.message);
+    console.error(error);
+  } finally {
+    modalEliminar.classList.remove('active');
+    modalEliminar.setAttribute('aria-hidden', 'true');
   }
-  modalEliminar.classList.remove('active');
-  modalEliminar.setAttribute('aria-hidden','true');
 });
+
 elimNo.addEventListener('click', () => {
   modalEliminar.classList.remove('active');
-  modalEliminar.setAttribute('aria-hidden','true');
+  modalEliminar.setAttribute('aria-hidden', 'true');
 });
 
 btnCancelar.addEventListener('click', () => { clearForm(); showMessage('Operación cancelada.'); });
 
 btnSalir.addEventListener('click', () => {
   modalSalir.classList.add('active');
-  modalSalir.setAttribute('aria-hidden','false');
+  modalSalir.setAttribute('aria-hidden', 'false');
 });
 
 salirYes.addEventListener('click', () => { window.location.href = 'about:blank'; });
-salirNo.addEventListener('click', () => { modalSalir.classList.remove('active'); modalSalir.setAttribute('aria-hidden','true'); });
+salirNo.addEventListener('click', () => { modalSalir.classList.remove('active'); modalSalir.setAttribute('aria-hidden', 'true'); });
 
 // menu toggles
 document.querySelectorAll('.menu-toggle').forEach(btn => {
@@ -273,8 +290,7 @@ btnBack.addEventListener('click', () => showSelector());
 
 // Biblioteca module (restored)
 (() => {
-  const librosKey = 'libros';
-  let libros = JSON.parse(localStorage.getItem(librosKey) || '[]');
+  let libros = [];
   let selectedBookId = null;
   let isEditing = false;
 
@@ -297,11 +313,11 @@ btnBack.addEventListener('click', () => showSelector());
   const btnMostrarLib = document.getElementById('btnMostrarLib');
   const btnSalirLib = document.getElementById('btnSalirLib');
 
-  function saveLibState() { localStorage.setItem(librosKey, JSON.stringify(libros)); }
+  function setDefaultDateLib() {
+    fechaIngreso.value = new Date().toISOString().split('T')[0];
+  }
 
-  function setDefaultDateLib() { fechaIngreso.value = new Date().toISOString().split('T')[0]; }
-
-  function showMessageLib(text, type = 'info') {
+  function showMessageLib(text) {
     if (!messageBox) return;
     messageBox.textContent = text;
   }
@@ -328,7 +344,7 @@ btnBack.addEventListener('click', () => showSelector());
       nombre: nombreLibro.value.trim(),
       editorial: editorial.value.trim(),
       autor: autor.value.trim(),
-      copias: Number(numCopias.value)
+      copias: Number(numCopias.value),
     };
   }
 
@@ -343,24 +359,39 @@ btnBack.addEventListener('click', () => showSelector());
     return '';
   }
 
-  function renderTableLib() {
+  async function renderTableLib() {
     tableBodyLib.innerHTML = '';
-    if (libros.length === 0) {
-      const r = document.createElement('tr');
-      const c = document.createElement('td'); c.colSpan = 6; c.textContent = 'No hay libros registrados aún.'; r.appendChild(c); tableBodyLib.appendChild(r); return;
+
+    try {
+      libros = await LibrosAPI.getAll();
+    } catch (error) {
+      showMessageLib('Error cargando libros desde MongoDB.');
+      console.error(error);
+      return;
     }
-    libros.forEach(book => {
+
+    if (!libros.length) {
+      const r = document.createElement('tr');
+      const c = document.createElement('td');
+      c.colSpan = 6;
+      c.textContent = 'No hay libros registrados aún.';
+      r.appendChild(c);
+      tableBodyLib.appendChild(r);
+      return;
+    }
+
+    libros.forEach((book) => {
       const row = document.createElement('tr');
-      row.dataset.bookId = book.id;
+      row.dataset.bookId = book._id;
       row.innerHTML = `
-        <td>${book.id}</td>
-        <td>${book.nombre}</td>
-        <td>${book.editorial || '-'}</td>
-        <td>${book.autor || '-'}</td>
-        <td>${book.copias}</td>
-        <td>${book.fechaIngreso}</td>
+        <td>${escapeHtml(book.idLibro)}</td>
+        <td>${escapeHtml(book.nombre)}</td>
+        <td>${escapeHtml(book.editorial || '-')}</td>
+        <td>${escapeHtml(book.autor || '-')}</td>
+        <td>${book.numCopias}</td>
+        <td>${Utils.formatDate(book.fechaIngreso)}</td>
       `;
-      row.addEventListener('click', () => selectBookRowLib(row, book.id));
+      row.addEventListener('click', () => selectBookRowLib(row, book._id));
       tableBodyLib.appendChild(row);
     });
   }
@@ -373,45 +404,71 @@ btnBack.addEventListener('click', () => showSelector());
   }
 
   function loadBookToFormLib(book) {
-    fechaIngreso.value = book.fechaIngreso;
-    idLibro.value = book.id;
+    fechaIngreso.value = new Date(book.fechaIngreso).toISOString().split('T')[0];
+    idLibro.value = book.idLibro;
     nombreLibro.value = book.nombre;
-    editorial.value = book.editorial;
-    autor.value = book.autor;
-    numCopias.value = book.copias;
-    isEditing = false;
+    editorial.value = book.editorial || '';
+    autor.value = book.autor || '';
+    numCopias.value = book.numCopias;
+    isEditing = true;
     idLibro.readOnly = true;
   }
 
-  function guardarLibroLib() {
+  async function guardarLibroLib() {
     const book = getFormDataLib();
     const error = validateBookLib(book);
     if (error) { showMessageLib(error); return; }
-    if (selectedBookId && isEditing) {
-      // update
-      const idx = libros.findIndex(item => item.id === selectedBookId);
-      if (idx === -1) { showMessageLib('No se encontró el libro seleccionado.'); return; }
-      libros[idx] = book; saveLibState(); renderTableLib(); resetFormLib(); showMessageLib('Cambios guardados.'); return;
+
+    try {
+      if (selectedBookId && isEditing) {
+        await LibrosAPI.update(selectedBookId, {
+          nombre: book.nombre,
+          editorial: book.editorial,
+          autor: book.autor,
+          numCopias: book.copias,
+        });
+        showMessageLib('Cambios guardados.');
+      } else {
+        await LibrosAPI.create({
+          idLibro: book.id,
+          nombre: book.nombre,
+          editorial: book.editorial,
+          autor: book.autor,
+          numCopias: book.copias,
+        });
+        showMessageLib('Libro guardado en MongoDB correctamente.');
+      }
+
+      await renderTableLib();
+      resetFormLib();
+    } catch (error) {
+      showMessageLib('Error guardando libro: ' + error.message);
+      console.error(error);
     }
-    const existing = libros.findIndex(item => item.id === book.id);
-    if (existing !== -1) { showMessageLib('Ya existe un libro con ese ID.'); return; }
-    libros.push(book); saveLibState(); renderTableLib(); resetFormLib(); showMessageLib('Libro guardado correctamente.');
   }
 
-  function editarLibroLib() {
+  async function editarLibroLib() {
     if (!selectedBookId) { showMessageLib('Selecciona un libro en la grilla para editarlo.'); return; }
-    const book = libros.find(item => item.id === selectedBookId);
+    const book = libros.find((item) => item._id === selectedBookId);
     if (!book) { showMessageLib('No se encontró el libro seleccionado.'); return; }
-    loadBookToFormLib(book); isEditing = true; showMessageLib('Modo edición activado.');
+    loadBookToFormLib(book);
+    showMessageLib('Modo edición activado.');
   }
 
-  function eliminarLibroLib() {
+  async function eliminarLibroLib() {
     if (!selectedBookId) { showMessageLib('Selecciona un libro en la grilla para eliminarlo.'); return; }
     const confirmDelete = confirm('¿Eliminar el libro seleccionado?');
     if (!confirmDelete) { showMessageLib('Eliminación cancelada.'); return; }
-    const idx = libros.findIndex(item => item.id === selectedBookId);
-    if (idx === -1) { showMessageLib('No se encontró el libro a eliminar.'); return; }
-    libros.splice(idx,1); saveLibState(); resetFormLib(); renderTableLib(); showMessageLib('Libro eliminado correctamente.');
+
+    try {
+      await LibrosAPI.delete(selectedBookId);
+      await renderTableLib();
+      resetFormLib();
+      showMessageLib('Libro eliminado correctamente.');
+    } catch (error) {
+      showMessageLib('Error eliminando libro: ' + error.message);
+      console.error(error);
+    }
   }
 
   btnGuardar.addEventListener('click', guardarLibroLib);
@@ -423,9 +480,18 @@ btnBack.addEventListener('click', () => showSelector());
   btnMostrarLib.addEventListener('click', renderTableLib);
   btnSalirLib.addEventListener('click', () => { showSelector(); });
 
-  form.addEventListener('reset', () => { setTimeout(() => { setDefaultDateLib(); selectedBookId = null; isEditing = false; idLibro.readOnly = false; clearSelectionLib(); },0); });
+  form.addEventListener('reset', () => {
+    setTimeout(() => {
+      setDefaultDateLib();
+      selectedBookId = null;
+      isEditing = false;
+      idLibro.readOnly = false;
+      clearSelectionLib();
+    }, 0);
+  });
 
-  setDefaultDateLib(); renderTableLib();
+  setDefaultDateLib();
+  renderTableLib();
 })();
 
 // inicializar (evidences)
