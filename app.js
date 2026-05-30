@@ -1,500 +1,617 @@
-// Evidences management (cliente)
-let evidencias = [];
-let selectedId = null;
-let editingId = null;
-let currentFile = null;
+/**
+ * APLICACIÓN PRINCIPAL - GESTIÓN DE EVIDENCIAS
+ * Sistema completo de gestión para estudiantes, tutores y asesores pedagógicos
+ */
 
-// DOM
-const listaEstudiantes = document.getElementById('listaEstudiantes');
-const tipo = document.getElementById('tipo');
-const fecha = document.getElementById('fecha');
-const nombreEvidencia = document.getElementById('nombreEvidencia');
-const descripcion = document.getElementById('descripcion');
-const archivoInput = document.getElementById('archivo');
-const archivoNombre = document.getElementById('archivoNombre');
-const tableBody = document.querySelector('#evidenceTable tbody');
+// ============ ESTADO GLOBAL ============
+const APP = {
+  currentView: 'evidencia-estudiante',
+  currentUser: null,
+  estudiantes: [],
+  evidencias: [],
+  observaciones: [],
+  editingEvidenciaId: null,
+  editingObservacionId: null
+};
 
-const btnCargar = document.getElementById('btnCargar');
-const btnNueva = document.getElementById('btnNueva');
-const btnModificar = document.getElementById('btnModificar');
-const btnEliminar = document.getElementById('btnEliminar');
-const btnCancelar = document.getElementById('btnCancelar');
-const btnAceptar = document.getElementById('btnAceptar');
-const btnSalir = document.getElementById('btnSalir');
+// ============ INICIALIZACIÓN ============
+document.addEventListener('DOMContentLoaded', () => {
+  initializeApp();
+});
 
-const modalSalir = document.getElementById('modalSalir');
-const salirYes = document.getElementById('salirYes');
-const salirNo = document.getElementById('salirNo');
-const modalEliminar = document.getElementById('modalEliminar');
-const elimYes = document.getElementById('elimYes');
-const elimNo = document.getElementById('elimNo');
+function initializeApp() {
+  setupEventListeners();
+  setDefaultDate();
+  loadEstudiantes();
+  showView('evidencia-estudiante');
+}
 
-function showMessage(text, timeout = 2500) {
-  let box = document.getElementById('messageBox');
-  if (!box) {
-    box = document.createElement('div');
-    box.id = 'messageBox';
-    box.className = 'message';
-    const panel = document.querySelector('.evidence-panel');
-    panel.insertBefore(box, panel.firstChild);
+// ============ NAVEGACIÓN Y VISTAS ============
+function setupEventListeners() {
+  // Menú lateral
+  document.querySelectorAll('.menu-toggle').forEach(btn => {
+    btn.addEventListener('click', handleMenuToggle);
+  });
+
+  document.querySelectorAll('.menu-item').forEach(item => {
+    item.addEventListener('click', (e) => {
+      const view = e.target.dataset.view;
+      if (view) showView(view);
+    });
+  });
+
+  // Botón salir
+  document.getElementById('btnSalir').addEventListener('click', showExitModal);
+
+  // Vista 1: Gestión de Evidencias (Estudiante)
+  setupEvidenciaEstudianteEvents();
+
+  // Vista 2: Revisión de Evidencias (Tutor)
+  setupEvidenciaTutorEvents();
+
+  // Vista 3: Observaciones
+  setupObservacionesEvents();
+
+  // Modales globales
+  setupModalEvents();
+}
+
+function handleMenuToggle(e) {
+  const submenuId = e.target.dataset.target;
+  const submenu = document.getElementById(submenuId);
+  const isExpanded = e.target.getAttribute('aria-expanded') === 'true';
+  
+  e.target.setAttribute('aria-expanded', !isExpanded);
+  submenu.style.display = isExpanded ? 'none' : 'block';
+}
+
+function showView(viewName) {
+  // Ocultar todas las vistas
+  document.querySelectorAll('.view-panel').forEach(panel => {
+    panel.classList.remove('active');
+    panel.style.display = 'none';
+  });
+
+  // Mostrar vista seleccionada
+  const view = document.getElementById(`view-${viewName}`);
+  if (view) {
+    view.classList.add('active');
+    view.style.display = 'block';
+    APP.currentView = viewName;
+
+    // Actualizar menú activo
+    document.querySelectorAll('.menu-item').forEach(item => {
+      item.classList.remove('active');
+      if (item.dataset.view === viewName) {
+        item.classList.add('active');
+      }
+    });
+
+    // Cargar datos según vista
+    if (viewName === 'evidencia-estudiante') {
+      loadEvidenciasEstudiante();
+    } else if (viewName === 'evidencia-tutor') {
+      loadEvidenciasTutor();
+    } else if (viewName === 'observaciones-asesor') {
+      loadObservaciones();
+    }
   }
-  box.textContent = text;
-  if (timeout > 0) setTimeout(() => { if (box) box.textContent = ''; }, timeout);
 }
 
-function setDateNow() {
-  const d = new Date();
-  fecha.value = d.toLocaleDateString();
-}
+// ============ VISTA 1: GESTIÓN DE EVIDENCIAS (ESTUDIANTE) ============
+function setupEvidenciaEstudianteEvents() {
+  const formEvidencia = document.getElementById('formEvidencia');
+  const btnCargar = document.getElementById('btnCargarArchivo');
+  const fileInput = document.getElementById('evidArchivo');
+  const btnGuardar = document.getElementById('btnGuardarEvidencia');
+  const btnLimpiar = document.getElementById('btnLimpiarForm');
+  const selEstudiante = document.getElementById('selEstudiante');
 
-function clearForm() {
-  listaEstudiantes.value = '';
-  tipo.value = '';
-  nombreEvidencia.value = '';
-  descripcion.value = '';
-  archivoInput.value = '';
-  archivoNombre.textContent = 'Ningún archivo cargado';
-  currentFile = null;
-  editingId = null;
-  selectedId = null;
-  clearSelection();
-  setDateNow();
-}
+  if (!btnCargar || !fileInput) return;
 
-function clearSelection() {
-  const sel = tableBody.querySelector('tr.selected');
-  if (sel) sel.classList.remove('selected');
-}
+  btnCargar.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', handleFileSelect);
+  btnGuardar.addEventListener('click', (e) => {
+    e.preventDefault();
+    guardarEvidencia();
+  });
+  btnLimpiar.addEventListener('click', () => {
+    formEvidencia.reset();
+    APP.editingEvidenciaId = null;
+    setDefaultDate();
+    document.getElementById('archivoNombreShow').textContent = 'Ningún archivo seleccionado';
+  });
+  selEstudiante.addEventListener('change', loadEvidenciasEstudiante);
 
-async function renderTable() {
-  tableBody.innerHTML = '';
-
-  try {
-    evidencias = await EvidenciasAPI.getAll();
-  } catch (error) {
-    showMessage('Error cargando evidencias desde MongoDB.');
-    console.error(error);
-    return;
-  }
-
-  if (!evidencias.length) {
-    const r = document.createElement('tr');
-    const c = document.createElement('td');
-    c.colSpan = 6;
-    c.textContent = 'No hay evidencias registradas.';
-    r.appendChild(c);
-    tableBody.appendChild(r);
-    return;
-  }
-
-  evidencias.forEach(ev => {
-    const r = document.createElement('tr');
-    r.dataset.id = ev._id;
-    r.innerHTML = `
-      <td>${escapeHtml(ev._id)}</td>
-      <td>${escapeHtml(ev.nombre)}</td>
-      <td>${escapeHtml(ev.tipo)}</td>
-      <td>${Utils.formatDate(ev.fechaCarga)}</td>
-      <td>${escapeHtml(ev.descripcion || '')}</td>
-      <td>${ev.archivo && ev.archivo.nombre ? `<a href="${escapeHtml(ev.archivo.url)}" target="_blank">${escapeHtml(ev.archivo.nombre)}</a>` : '-'}</td>
-    `;
-    r.addEventListener('click', () => selectRow(r, ev._id));
-    tableBody.appendChild(r);
+  document.addEventListener('click', (e) => {
+    if (e.target.dataset.action === 'edit-evidencia') {
+      editarEvidencia(e.target.dataset.id);
+    }
+    if (e.target.dataset.action === 'delete-evidencia') {
+      confirmarEliminarEvidencia(e.target.dataset.id);
+    }
   });
 }
 
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (m) => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;'
-  }[m]));
-}
-
-function selectRow(row, id) {
-  clearSelection();
-  row.classList.add('selected');
-  selectedId = id;
-  showMessage('Evidencia seleccionada');
-}
-
-btnCargar.addEventListener('click', () => archivoInput.click());
-archivoInput.addEventListener('change', (e) => {
+function handleFileSelect(e) {
   const file = e.target.files[0];
-  if (!file) return;
-  const allowed = ['application/pdf','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
-  if (!allowed.includes(file.type)) {
-    alert('Tipo de archivo no permitido. Use PDF, Word o Excel.');
-    archivoInput.value = '';
+  const archivoNombreShow = document.getElementById('archivoNombreShow');
+  if (file) {
+    archivoNombreShow.textContent = `📎 ${file.name}`;
+  } else {
+    archivoNombreShow.textContent = 'Ningún archivo seleccionado';
+  }
+}
+
+async function guardarEvidencia() {
+  const tipo = document.getElementById('evidTipo').value;
+  const nombre = document.getElementById('evidNombre').value;
+  const descripcion = document.getElementById('evidDescripcion').value;
+  const idEstudiante = document.getElementById('selEstudiante').value;
+  const fileInput = document.getElementById('evidArchivo');
+
+  if (!tipo || !nombre || !descripcion || !idEstudiante) {
+    showMessage('Por favor complete todos los campos requeridos', 'error');
     return;
   }
-  currentFile = { nombre: file.name, tamaño: file.size, tipo: file.type, url: URL.createObjectURL(file) };
-  archivoNombre.textContent = file.name;
-});
-
-btnNueva.addEventListener('click', () => {
-  clearForm();
-  showMessage('Formulario limpio. Fecha actualizada.');
-});
-
-btnAceptar.addEventListener('click', async () => {
-  const estudiante = listaEstudiantes.value.trim();
-  const nombre = nombreEvidencia.value.trim();
-  const tipoVal = tipo.value;
-  const descripcionTexto = descripcion.value.trim();
-
-  if (!estudiante) { alert('Seleccione un estudiante.'); return; }
-  if (!tipoVal) { alert('Seleccione tipo de evidencia.'); return; }
-  if (!nombre) { alert('Ingrese nombre de la evidencia.'); return; }
-  if (!descripcionTexto) { alert('Ingrese descripción de la evidencia.'); return; }
-  if (!currentFile && !editingId) { alert('Cargue un archivo antes de aceptar.'); return; }
 
   try {
-    if (editingId) {
-      await EvidenciasAPI.update(editingId, {
-        estudiante,
-        tipo: tipoVal,
-        nombre,
-        descripcion: descripcionTexto,
-        archivo: currentFile,
-      });
-      showMessage('Evidencia modificada con éxito.');
-    } else {
-      await EvidenciasAPI.create({
-        estudiante,
-        tipo: tipoVal,
-        nombre,
-        descripcion: descripcionTexto,
-        archivo: currentFile,
-      });
-      showMessage('Evidencia guardada en MongoDB correctamente.');
+    const formData = new FormData();
+    formData.append('nombre', nombre);
+    formData.append('tipo', tipo);
+    formData.append('descripcion', descripcion);
+    formData.append('idEstudiante', idEstudiante);
+    
+    if (fileInput.files[0]) {
+      formData.append('archivo', fileInput.files[0]);
     }
 
-    await renderTable();
-    clearForm();
+    let url = 'http://localhost:5000/api/evidencias';
+    let method = 'POST';
+
+    if (APP.editingEvidenciaId) {
+      url = `${url}/${APP.editingEvidenciaId}`;
+      method = 'PUT';
+    }
+
+    const response = await fetch(url, {
+      method,
+      body: formData
+    });
+
+    if (!response.ok) throw new Error('Error al guardar');
+
+    showMessage('Evidencia guardada exitosamente', 'success');
+    document.getElementById('formEvidencia').reset();
+    APP.editingEvidenciaId = null;
+    setDefaultDate();
+    loadEvidenciasEstudiante();
   } catch (error) {
-    showMessage('Error guardando evidencia: ' + error.message);
     console.error(error);
+    showMessage('Error al guardar la evidencia', 'error');
   }
-});
+}
 
-btnModificar.addEventListener('click', () => {
-  if (!selectedId) { alert('Seleccione una evidencia en la grilla.'); return; }
-  const ev = evidencias.find(e => e._id === selectedId);
-  if (!ev) { alert('Evidencia no encontrada.'); return; }
+async function loadEvidenciasEstudiante() {
+  const idEstudiante = document.getElementById('selEstudiante').value;
+  const tbody = document.querySelector('#tableEvidencias tbody');
 
-  listaEstudiantes.value = ev.estudiante || '';
-  tipo.value = ev.tipo;
-  nombreEvidencia.value = ev.nombre;
-  descripcion.value = ev.descripcion || '';
-  if (ev.archivo) {
-    archivoNombre.textContent = ev.archivo.nombre || 'Archivo cargado';
-    currentFile = ev.archivo;
-  } else {
-    archivoNombre.textContent = 'Ningún archivo cargado';
-    currentFile = null;
+  if (!idEstudiante) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);">Seleccione un estudiante</td></tr>';
+    return;
   }
-  editingId = ev._id;
-  showMessage('Modo edición: modifique y presione Aceptar.');
-});
-
-btnEliminar.addEventListener('click', () => {
-  if (!selectedId) { alert('Seleccione una evidencia en la grilla.'); return; }
-  modalEliminar.classList.add('active');
-  modalEliminar.setAttribute('aria-hidden', 'false');
-});
-
-elimYes.addEventListener('click', async () => {
-  if (!selectedId) return;
 
   try {
-    await EvidenciasAPI.delete(selectedId);
-    await renderTable();
-    clearForm();
-    showMessage('Evidencia eliminada correctamente.');
+    const response = await fetch(`http://localhost:5000/api/evidencias?idEstudiante=${idEstudiante}`);
+    const evidencias = await response.json();
+
+    if (!Array.isArray(evidencias) || evidencias.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);">No hay evidencias registradas</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = evidencias.map(ev => `
+      <tr>
+        <td>${escapeHtml(ev._id || '')}</td>
+        <td>${escapeHtml(ev.nombre)}</td>
+        <td>${escapeHtml(ev.tipo)}</td>
+        <td>${formatDate(ev.fechaCarga)}</td>
+        <td>${escapeHtml(ev.descripcion || '')}</td>
+        <td>${ev.archivo ? `<a href="${ev.archivo.url}" target="_blank">📥 Descargar</a>` : '-'}</td>
+        <td>
+          <button data-action="edit-evidencia" data-id="${ev._id}" class="btn-small">Editar</button>
+          <button data-action="delete-evidencia" data-id="${ev._id}" class="btn-small">Eliminar</button>
+        </td>
+      </tr>
+    `).join('');
   } catch (error) {
-    showMessage('Error eliminando evidencia: ' + error.message);
     console.error(error);
-  } finally {
-    modalEliminar.classList.remove('active');
-    modalEliminar.setAttribute('aria-hidden', 'true');
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);">Error al cargar evidencias</td></tr>';
   }
-});
+}
 
-elimNo.addEventListener('click', () => {
-  modalEliminar.classList.remove('active');
-  modalEliminar.setAttribute('aria-hidden', 'true');
-});
+async function editarEvidencia(id) {
+  try {
+    const response = await fetch(`http://localhost:5000/api/evidencias/${id}`);
+    const ev = await response.json();
 
-btnCancelar.addEventListener('click', () => { clearForm(); showMessage('Operación cancelada.'); });
+    document.getElementById('evidTipo').value = ev.tipo;
+    document.getElementById('evidNombre').value = ev.nombre;
+    document.getElementById('evidDescripcion').value = ev.descripcion;
+    
+    if (ev.archivo) {
+      document.getElementById('archivoNombreShow').textContent = `📎 ${ev.archivo.nombre}`;
+    }
 
-btnSalir.addEventListener('click', () => {
-  modalSalir.classList.add('active');
-  modalSalir.setAttribute('aria-hidden', 'false');
-});
+    APP.editingEvidenciaId = id;
+    document.querySelector('.form-section').scrollIntoView({ behavior: 'smooth' });
+  } catch (error) {
+    showMessage('Error al cargar evidencia', 'error');
+  }
+}
 
-salirYes.addEventListener('click', () => { window.location.href = 'about:blank'; });
-salirNo.addEventListener('click', () => { modalSalir.classList.remove('active'); modalSalir.setAttribute('aria-hidden', 'true'); });
+async function confirmarEliminarEvidencia(id) {
+  if (confirm('¿Desea eliminar esta evidencia?')) {
+    await eliminarEvidencia(id);
+  }
+}
 
-// menu toggles
-document.querySelectorAll('.menu-toggle').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const target = document.getElementById(btn.dataset.target);
-    const open = btn.getAttribute('aria-expanded') === 'true';
-    document.querySelectorAll('.submenu').forEach(s => s.style.display = 'none');
-    document.querySelectorAll('.menu-toggle').forEach(b => b.setAttribute('aria-expanded','false'));
-    if (!open) { target.style.display = 'block'; btn.setAttribute('aria-expanded','true'); }
+async function eliminarEvidencia(id) {
+  try {
+    const response = await fetch(`http://localhost:5000/api/evidencias/${id}`, {
+      method: 'DELETE'
+    });
+
+    if (!response.ok) throw new Error('Error al eliminar');
+
+    showMessage('Evidencia eliminada exitosamente', 'success');
+    loadEvidenciasEstudiante();
+  } catch (error) {
+    showMessage('Error al eliminar', 'error');
+  }
+}
+
+// ============ VISTA 2: REVISIÓN DE EVIDENCIAS (TUTOR) ============
+function setupEvidenciaTutorEvents() {
+  const filterEstudiante = document.getElementById('filterEstudiante');
+  const modalRevision = document.getElementById('modalRevision');
+  const btnCancelarRevision = document.getElementById('btnCancelarRevision');
+  const formRevision = document.getElementById('formRevision');
+
+  if (!filterEstudiante) return;
+
+  filterEstudiante.addEventListener('change', loadEvidenciasTutor);
+
+  document.addEventListener('click', (e) => {
+    if (e.target.dataset.action === 'review-evidencia') {
+      abrirModalRevision(e.target.dataset.id);
+    }
   });
-});
 
-// Module selector
-const moduleSelector = document.getElementById('moduleSelector');
-const openLibrary = document.getElementById('openLibrary');
-const openEvidences = document.getElementById('openEvidences');
-const libraryPanel = document.getElementById('libraryPanel');
-const evidencePanel = document.getElementById('evidencePanel');
-
-const sidebar = document.getElementById('sidebar');
-const btnBack = document.getElementById('btnBack');
-
-function showModule(name) {
-  moduleSelector.style.display = 'none';
-  btnBack.style.display = '';
-  if (name === 'library') {
-    libraryPanel.style.display = '';
-    evidencePanel.style.display = 'none';
-    sidebar.style.display = 'none';
-    document.querySelector('.layout').classList.add('full-width');
-  } else if (name === 'evidences') {
-    evidencePanel.style.display = '';
-    libraryPanel.style.display = 'none';
-    sidebar.style.display = '';
-    document.querySelector('.layout').classList.remove('full-width');
-  }
-}
-
-function showSelector() {
-  moduleSelector.style.display = 'flex';
-  libraryPanel.style.display = 'none';
-  evidencePanel.style.display = 'none';
-  sidebar.style.display = 'none';
-  btnBack.style.display = 'none';
-  document.querySelector('.layout').classList.add('full-width');
-}
-
-openLibrary.addEventListener('click', () => showModule('library'));
-openEvidences.addEventListener('click', () => showModule('evidences'));
-btnBack.addEventListener('click', () => showSelector());
-
-// Biblioteca module (restored)
-(() => {
-  let libros = [];
-  let selectedBookId = null;
-  let isEditing = false;
-
-  const form = document.getElementById('bookFormLib');
-  const fechaIngreso = document.getElementById('fechaIngresoLib');
-  const idLibro = document.getElementById('idLibroLib');
-  const nombreLibro = document.getElementById('nombreLibroLib');
-  const editorial = document.getElementById('editorialLib');
-  const autor = document.getElementById('autorLib');
-  const numCopias = document.getElementById('numCopiasLib');
-  const messageBox = document.getElementById('messageBoxLib');
-  const tableBodyLib = document.querySelector('#booksTableLib tbody');
-
-  const btnNuevo = document.getElementById('btnNuevoLib');
-  const btnEditar = document.getElementById('btnEditarLib');
-  const btnGuardar = document.getElementById('btnGuardarLib');
-  const btnEliminar = document.getElementById('btnEliminarLib');
-  const btnLimpiar = document.getElementById('btnLimpiarLib');
-  const btnCancelarLib = document.getElementById('btnCancelarLib');
-  const btnMostrarLib = document.getElementById('btnMostrarLib');
-  const btnSalirLib = document.getElementById('btnSalirLib');
-
-  function setDefaultDateLib() {
-    fechaIngreso.value = new Date().toISOString().split('T')[0];
-  }
-
-  function showMessageLib(text) {
-    if (!messageBox) return;
-    messageBox.textContent = text;
-  }
-
-  function resetFormLib() {
-    form.reset();
-    setDefaultDateLib();
-    selectedBookId = null;
-    isEditing = false;
-    idLibro.readOnly = false;
-    clearSelectionLib();
-    showMessageLib('Formulario listo para nuevo registro.');
-  }
-
-  function clearSelectionLib() {
-    const sel = tableBodyLib.querySelector('tr.selected');
-    if (sel) sel.classList.remove('selected');
-  }
-
-  function getFormDataLib() {
-    return {
-      fechaIngreso: fechaIngreso.value,
-      id: idLibro.value.trim(),
-      nombre: nombreLibro.value.trim(),
-      editorial: editorial.value.trim(),
-      autor: autor.value.trim(),
-      copias: Number(numCopias.value),
-    };
-  }
-
-  function validateBookLib(book) {
-    if (!book.id) return 'El ID Libro es obligatorio.';
-    if (book.id.length > 10) return 'ID Libro debe tener máximo 10 caracteres.';
-    if (!book.nombre) return 'Nombre del libro es obligatorio.';
-    if (book.nombre.length > 100) return 'Nombre del libro debe tener máximo 100 caracteres.';
-    if (book.editorial.length > 100) return 'Editorial debe tener máximo 100 caracteres.';
-    if (book.autor.length > 100) return 'Autor debe tener máximo 100 caracteres.';
-    if (!book.copias || book.copias < 1 || book.copias > 999) return 'Número de copias debe ser entre 1 y 999.';
-    return '';
-  }
-
-  async function renderTableLib() {
-    tableBodyLib.innerHTML = '';
-
-    try {
-      libros = await LibrosAPI.getAll();
-    } catch (error) {
-      showMessageLib('Error cargando libros desde MongoDB.');
-      console.error(error);
-      return;
-    }
-
-    if (!libros.length) {
-      const r = document.createElement('tr');
-      const c = document.createElement('td');
-      c.colSpan = 6;
-      c.textContent = 'No hay libros registrados aún.';
-      r.appendChild(c);
-      tableBodyLib.appendChild(r);
-      return;
-    }
-
-    libros.forEach((book) => {
-      const row = document.createElement('tr');
-      row.dataset.bookId = book._id;
-      row.innerHTML = `
-        <td>${escapeHtml(book.idLibro)}</td>
-        <td>${escapeHtml(book.nombre)}</td>
-        <td>${escapeHtml(book.editorial || '-')}</td>
-        <td>${escapeHtml(book.autor || '-')}</td>
-        <td>${book.numCopias}</td>
-        <td>${Utils.formatDate(book.fechaIngreso)}</td>
-      `;
-      row.addEventListener('click', () => selectBookRowLib(row, book._id));
-      tableBodyLib.appendChild(row);
+  if (btnCancelarRevision) {
+    btnCancelarRevision.addEventListener('click', () => {
+      cerrarModalRevision();
     });
   }
 
-  function selectBookRowLib(row, id) {
-    clearSelectionLib();
-    row.classList.add('selected');
-    selectedBookId = id;
-    showMessageLib('Libro seleccionado. Presiona Editar para modificarlo.');
+  if (formRevision) {
+    formRevision.addEventListener('submit', guardarRevision);
   }
 
-  function loadBookToFormLib(book) {
-    fechaIngreso.value = new Date(book.fechaIngreso).toISOString().split('T')[0];
-    idLibro.value = book.idLibro;
-    nombreLibro.value = book.nombre;
-    editorial.value = book.editorial || '';
-    autor.value = book.autor || '';
-    numCopias.value = book.numCopias;
-    isEditing = true;
-    idLibro.readOnly = true;
-  }
-
-  async function guardarLibroLib() {
-    const book = getFormDataLib();
-    const error = validateBookLib(book);
-    if (error) { showMessageLib(error); return; }
-
-    try {
-      if (selectedBookId && isEditing) {
-        await LibrosAPI.update(selectedBookId, {
-          nombre: book.nombre,
-          editorial: book.editorial,
-          autor: book.autor,
-          numCopias: book.copias,
-        });
-        showMessageLib('Cambios guardados.');
-      } else {
-        await LibrosAPI.create({
-          idLibro: book.id,
-          nombre: book.nombre,
-          editorial: book.editorial,
-          autor: book.autor,
-          numCopias: book.copias,
-        });
-        showMessageLib('Libro guardado en MongoDB correctamente.');
+  if (modalRevision) {
+    modalRevision.addEventListener('click', (e) => {
+      if (e.target === modalRevision) {
+        cerrarModalRevision();
       }
+    });
+  }
+}
 
-      await renderTableLib();
-      resetFormLib();
-    } catch (error) {
-      showMessageLib('Error guardando libro: ' + error.message);
-      console.error(error);
+async function loadEvidenciasTutor() {
+  const filterEstudiante = document.getElementById('filterEstudiante').value;
+  const tbody = document.querySelector('#tableEvidenciasTutor tbody');
+
+  if (!tbody) return;
+
+  try {
+    let url = 'http://localhost:5000/api/evidencias';
+    if (filterEstudiante) {
+      url += `?idEstudiante=${filterEstudiante}`;
     }
-  }
 
-  async function editarLibroLib() {
-    if (!selectedBookId) { showMessageLib('Selecciona un libro en la grilla para editarlo.'); return; }
-    const book = libros.find((item) => item._id === selectedBookId);
-    if (!book) { showMessageLib('No se encontró el libro seleccionado.'); return; }
-    loadBookToFormLib(book);
-    showMessageLib('Modo edición activado.');
-  }
+    const response = await fetch(url);
+    const evidencias = await response.json();
 
-  async function eliminarLibroLib() {
-    if (!selectedBookId) { showMessageLib('Selecciona un libro en la grilla para eliminarlo.'); return; }
-    const confirmDelete = confirm('¿Eliminar el libro seleccionado?');
-    if (!confirmDelete) { showMessageLib('Eliminación cancelada.'); return; }
-
-    try {
-      await LibrosAPI.delete(selectedBookId);
-      await renderTableLib();
-      resetFormLib();
-      showMessageLib('Libro eliminado correctamente.');
-    } catch (error) {
-      showMessageLib('Error eliminando libro: ' + error.message);
-      console.error(error);
+    if (!Array.isArray(evidencias) || evidencias.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);">No hay evidencias para revisar</td></tr>';
+      return;
     }
+
+    tbody.innerHTML = evidencias.map(ev => `
+      <tr>
+        <td>${escapeHtml(ev.idEstudiante || '')}</td>
+        <td>${escapeHtml(ev.nombreEstudiante || '')}</td>
+        <td>${escapeHtml(ev.nombre)}</td>
+        <td>${escapeHtml(ev.tipo)}</td>
+        <td>${formatDate(ev.fechaCarga)}</td>
+        <td><span class="badge">${ev.estado || 'Pendiente'}</span></td>
+        <td>${ev.calificacion || '-'}</td>
+        <td>
+          <button data-action="review-evidencia" data-id="${ev._id}" class="btn-small">Revisar</button>
+        </td>
+      </tr>
+    `).join('');
+  } catch (error) {
+    console.error(error);
+    if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);">Error al cargar</td></tr>';
+  }
+}
+
+async function abrirModalRevision(id) {
+  try {
+    const response = await fetch(`http://localhost:5000/api/evidencias/${id}`);
+    const ev = await response.json();
+
+    document.getElementById('revIdEstudiante').value = ev.idEstudiante || '';
+    document.getElementById('revNombreEstudiante').value = ev.nombreEstudiante || '';
+    document.getElementById('revNombreEvidencia').value = ev.nombre;
+    document.getElementById('revArchivo').textContent = ev.archivo ? ev.archivo.nombre : '-';
+    document.getElementById('revEstado').value = ev.estado || '';
+    document.getElementById('revCalificacion').value = ev.calificacion || '';
+    document.getElementById('revObservaciones').value = ev.observaciones || '';
+
+    document.getElementById('formRevision').dataset.evidenciaId = id;
+    document.getElementById('modalRevision').classList.add('active');
+  } catch (error) {
+    showMessage('Error al cargar la evidencia', 'error');
+  }
+}
+
+function cerrarModalRevision() {
+  const modalRevision = document.getElementById('modalRevision');
+  if (modalRevision) {
+    modalRevision.classList.remove('active');
+  }
+  const formRevision = document.getElementById('formRevision');
+  if (formRevision) {
+    formRevision.reset();
+  }
+}
+
+async function guardarRevision(e) {
+  e.preventDefault();
+
+  const id = document.getElementById('formRevision').dataset.evidenciaId;
+  const estado = document.getElementById('revEstado').value;
+  const calificacion = document.getElementById('revCalificacion').value;
+  const observaciones = document.getElementById('revObservaciones').value;
+
+  if (!estado || !calificacion) {
+    showMessage('Complete todos los campos requeridos', 'error');
+    return;
   }
 
-  btnGuardar.addEventListener('click', guardarLibroLib);
-  btnNuevo.addEventListener('click', resetFormLib);
-  btnEditar.addEventListener('click', editarLibroLib);
-  btnEliminar.addEventListener('click', eliminarLibroLib);
-  btnLimpiar.addEventListener('click', () => { form.reset(); setDefaultDateLib(); });
-  btnCancelarLib.addEventListener('click', () => { resetFormLib(); showMessageLib('Operación cancelada.'); });
-  btnMostrarLib.addEventListener('click', renderTableLib);
-  btnSalirLib.addEventListener('click', () => { showSelector(); });
+  try {
+    const response = await fetch(`http://localhost:5000/api/evidencias/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        estado,
+        calificacion: parseFloat(calificacion),
+        observaciones
+      })
+    });
 
-  form.addEventListener('reset', () => {
-    setTimeout(() => {
-      setDefaultDateLib();
-      selectedBookId = null;
-      isEditing = false;
-      idLibro.readOnly = false;
-      clearSelectionLib();
-    }, 0);
+    if (!response.ok) throw new Error('Error al guardar');
+
+    showMessage('Revisión guardada exitosamente', 'success');
+    cerrarModalRevision();
+    loadEvidenciasTutor();
+  } catch (error) {
+    showMessage('Error al guardar la revisión', 'error');
+  }
+}
+
+// ============ VISTA 3: OBSERVACIONES (ASESOR) ============
+function setupObservacionesEvents() {
+  const formObservacion = document.getElementById('formObservacion');
+  const btnGuardarObs = document.getElementById('btnGuardarObs');
+  const btnLimpiarObs = document.getElementById('btnLimpiarObs');
+
+  if (!formObservacion) return;
+
+  formObservacion.addEventListener('submit', (e) => {
+    e.preventDefault();
+    guardarObservacion();
   });
 
-  setDefaultDateLib();
-  renderTableLib();
-})();
+  if (btnLimpiarObs) {
+    btnLimpiarObs.addEventListener('click', () => formObservacion.reset());
+  }
 
-// inicializar (evidences)
-showSelector();
-setDateNow();
-renderTable();
+  document.addEventListener('click', (e) => {
+    if (e.target.dataset.action === 'delete-observacion') {
+      confirmarEliminarObservacion(e.target.dataset.id);
+    }
+  });
+}
+
+async function guardarObservacion() {
+  const idEstudiante = document.getElementById('obsEstudiante').value;
+  const observacion = document.getElementById('obsObservacion').value;
+
+  if (!idEstudiante || !observacion) {
+    showMessage('Complete todos los campos', 'error');
+    return;
+  }
+
+  try {
+    const method = APP.editingObservacionId ? 'PUT' : 'POST';
+    const url = APP.editingObservacionId 
+      ? `http://localhost:5000/api/observaciones/${APP.editingObservacionId}`
+      : 'http://localhost:5000/api/observaciones';
+
+    const response = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        idEstudiante,
+        observacion
+      })
+    });
+
+    if (!response.ok) throw new Error('Error al guardar');
+
+    showMessage('Observación guardada exitosamente', 'success');
+    document.getElementById('formObservacion').reset();
+    APP.editingObservacionId = null;
+    loadObservaciones();
+  } catch (error) {
+    showMessage('Error al guardar', 'error');
+  }
+}
+
+async function loadObservaciones() {
+  const tbody = document.querySelector('#tableObservaciones tbody');
+
+  if (!tbody) return;
+
+  try {
+    const response = await fetch('http://localhost:5000/api/observaciones');
+    const observaciones = await response.json();
+
+    if (!Array.isArray(observaciones) || observaciones.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);">No hay observaciones registradas</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = observaciones.map(obs => `
+      <tr>
+        <td>${escapeHtml(obs.idEstudiante)}</td>
+        <td>${escapeHtml(obs.nombreEstudiante || '')}</td>
+        <td>${escapeHtml(obs.observacion)}</td>
+        <td>${formatDate(obs.fecha)}</td>
+        <td>
+          <button class="btn-small">Editar</button>
+          <button data-action="delete-observacion" data-id="${obs._id}" class="btn-small">Eliminar</button>
+        </td>
+      </tr>
+    `).join('');
+  } catch (error) {
+    console.error(error);
+    if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);">Error al cargar</td></tr>';
+  }
+}
+
+async function confirmarEliminarObservacion(id) {
+  if (confirm('¿Desea eliminar esta observación?')) {
+    try {
+      const response = await fetch(`http://localhost:5000/api/observaciones/${id}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) throw new Error('Error');
+
+      showMessage('Observación eliminada', 'success');
+      loadObservaciones();
+    } catch (error) {
+      showMessage('Error al eliminar', 'error');
+    }
+  }
+}
+
+// ============ FUNCIONES AUXILIARES ============
+async function loadEstudiantes() {
+  try {
+    const response = await fetch('http://localhost:5000/api/estudiantes');
+    const estudiantes = await response.json();
+
+    if (!Array.isArray(estudiantes)) return;
+
+    APP.estudiantes = estudiantes;
+
+    const selEstudiante = document.getElementById('selEstudiante');
+    const filterEstudiante = document.getElementById('filterEstudiante');
+    const obsEstudiante = document.getElementById('obsEstudiante');
+
+    [selEstudiante, filterEstudiante, obsEstudiante].forEach(select => {
+      if (select) {
+        const options = estudiantes.map(e => 
+          `<option value="${e._id || e.id}">${e.nombre || e.nombreEstudiante}</option>`
+        ).join('');
+        select.innerHTML = '<option value="">-- Seleccione --</option>' + options;
+      }
+    });
+  } catch (error) {
+    console.error('Error cargando estudiantes:', error);
+  }
+}
+
+function setDefaultDate() {
+  const today = new Date().toISOString().split('T')[0];
+  const evidFecha = document.getElementById('evidFecha');
+  if (evidFecha) evidFecha.value = today;
+}
+
+function formatDate(date) {
+  if (!date) return '-';
+  return new Date(date).toLocaleDateString('es-ES');
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function showMessage(text, type = 'info') {
+  const toast = document.getElementById('messageBox');
+  if (!toast) return;
+  
+  toast.textContent = text;
+  toast.classList.add('show', type);
+  
+  setTimeout(() => {
+    toast.classList.remove('show', type);
+  }, 3000);
+}
+
+// ============ MODALES GLOBALES ============
+function setupModalEvents() {
+  const modalSalir = document.getElementById('modalSalir');
+  const salirYes = document.getElementById('salirYes');
+  const salirNo = document.getElementById('salirNo');
+
+  if (!salirYes || !salirNo) return;
+
+  salirYes.addEventListener('click', () => {
+    window.location.href = 'https://www.google.com';
+  });
+
+  salirNo.addEventListener('click', () => {
+    if (modalSalir) modalSalir.classList.remove('active');
+  });
+
+  if (modalSalir) {
+    modalSalir.addEventListener('click', (e) => {
+      if (e.target === modalSalir) {
+        modalSalir.classList.remove('active');
+      }
+    });
+  }
+}
+
+function showExitModal() {
+  const modalSalir = document.getElementById('modalSalir');
+  if (modalSalir) {
+    modalSalir.classList.add('active');
+  }
+}
+
+// ============ UTILIDADES DE INTERFAZ ============
+window.addEventListener('beforeunload', (e) => {
+  if (APP.editingEvidenciaId || APP.editingObservacionId) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
