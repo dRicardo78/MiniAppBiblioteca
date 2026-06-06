@@ -1,19 +1,23 @@
 // routes/observaciones.js
-// Rutas API para gestión de observaciones pedagógicas
+// Rutas API para gestión de observaciones pedagógicas con relación a estudiantes
 
 const express = require('express');
 const router = express.Router();
 const Observacion = require('../models/Observacion');
+const Estudiante = require('../models/Estudiante');
 
 // GET - Obtener todas las observaciones
 router.get('/', async (req, res, next) => {
   try {
-    const { idEstudiante } = req.query;
+    const { estudiante } = req.query;
     const filtros = {};
 
-    if (idEstudiante) filtros.idEstudiante = idEstudiante;
+    if (estudiante) filtros.estudiante = estudiante;
 
-    const observaciones = await Observacion.find(filtros).sort({ fecha: -1 });
+    const observaciones = await Observacion.find(filtros)
+      .populate('estudiante', 'codigo nombre correo programa semestre')
+      .sort({ fecha: -1 });
+
     res.json(observaciones);
   } catch (error) {
     next(error);
@@ -23,10 +27,13 @@ router.get('/', async (req, res, next) => {
 // GET - Obtener observación por ID
 router.get('/:id', async (req, res, next) => {
   try {
-    const observacion = await Observacion.findById(req.params.id);
+    const observacion = await Observacion.findById(req.params.id)
+      .populate('estudiante', 'codigo nombre correo programa semestre');
+
     if (!observacion) {
       return res.status(404).json({ error: 'Observación no encontrada' });
     }
+
     res.json(observacion);
   } catch (error) {
     next(error);
@@ -36,25 +43,35 @@ router.get('/:id', async (req, res, next) => {
 // POST - Crear nueva observación
 router.post('/', async (req, res, next) => {
   try {
-    const { idEstudiante, nombreEstudiante, observacion, asesor } = req.body;
+    const { estudiante, comentario, asesor } = req.body;
 
-    // Validación básica
-    if (!idEstudiante || !observacion) {
+    // Validación de campos obligatorios
+    if (!estudiante || !comentario) {
       return res.status(400).json({
-        error: 'Faltan campos obligatorios: idEstudiante, observacion',
+        error: 'Faltan campos obligatorios: estudiante, comentario',
+      });
+    }
+
+    // Verificar que el estudiante existe
+    const estudianteExistente = await Estudiante.findById(estudiante);
+    if (!estudianteExistente) {
+      return res.status(400).json({
+        error: 'El estudiante especificado no existe'
       });
     }
 
     const nuevaObservacion = new Observacion({
-      idEstudiante,
-      nombreEstudiante,
-      observacion,
-      asesor,
-      fecha: new Date(),
+      estudiante,
+      comentario,
+      asesor: asesor || null,
     });
 
-    await nuevaObservacion.save();
-    res.status(201).json(nuevaObservacion);
+    const observacionGuardada = await nuevaObservacion.save();
+
+    // Poblar datos del estudiante antes de devolver
+    await observacionGuardada.populate('estudiante', 'codigo nombre correo programa semestre');
+
+    res.status(201).json(observacionGuardada);
   } catch (error) {
     next(error);
   }
@@ -63,17 +80,28 @@ router.post('/', async (req, res, next) => {
 // PUT - Actualizar observación
 router.put('/:id', async (req, res, next) => {
   try {
-    const { observacion, asesor } = req.body;
+    const { comentario, asesor } = req.body;
+
+    // Validación de campos
+    if (!comentario) {
+      return res.status(400).json({
+        error: 'El comentario es obligatorio'
+      });
+    }
+
+    const updateData = {
+      comentario
+    };
+
+    if (asesor !== undefined) {
+      updateData.asesor = asesor;
+    }
 
     const observacionActualizada = await Observacion.findByIdAndUpdate(
       req.params.id,
-      {
-        observacion,
-        asesor,
-        updatedAt: new Date(),
-      },
-      { new: true }
-    );
+      updateData,
+      { new: true, runValidators: true }
+    ).populate('estudiante', 'codigo nombre correo programa semestre');
 
     if (!observacionActualizada) {
       return res.status(404).json({ error: 'Observación no encontrada' });

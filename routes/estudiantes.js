@@ -1,76 +1,145 @@
 // routes/estudiantes.js
-// Rutas API para gestión de estudiantes
+// Rutas API para gestión de estudiantes con MongoDB
 
 const express = require('express');
 const router = express.Router();
-
-// Para esta versión, usamos datos de prueba
-// En producción, estos se guardarían en MongoDB
-
-let estudiantes = [
-  { _id: '1', id: '1', nombre: 'Juan Pérez', nombreEstudiante: 'Juan Pérez' },
-  { _id: '2', id: '2', nombre: 'María García', nombreEstudiante: 'María García' },
-  { _id: '3', id: '3', nombre: 'Carlos López', nombreEstudiante: 'Carlos López' },
-  { _id: '4', id: '4', nombre: 'Ana Rodríguez', nombreEstudiante: 'Ana Rodríguez' },
-  { _id: '5', id: '5', nombre: 'Luis Martínez', nombreEstudiante: 'Luis Martínez' },
-];
+const Estudiante = require('../models/Estudiante');
 
 // GET - Obtener todos los estudiantes
-router.get('/', (req, res) => {
-  res.json(estudiantes);
+router.get('/', async (req, res, next) => {
+  try {
+    const estudiantes = await Estudiante.find().sort({ nombre: 1 });
+    res.json(estudiantes);
+  } catch (error) {
+    next(error);
+  }
 });
 
 // GET - Obtener estudiante por ID
-router.get('/:id', (req, res) => {
-  const estudiante = estudiantes.find(e => e._id === req.params.id || e.id === req.params.id);
-  if (!estudiante) {
-    return res.status(404).json({ error: 'Estudiante no encontrado' });
+router.get('/:id', async (req, res, next) => {
+  try {
+    const estudiante = await Estudiante.findById(req.params.id);
+    if (!estudiante) {
+      return res.status(404).json({ error: 'Estudiante no encontrado' });
+    }
+    res.json(estudiante);
+  } catch (error) {
+    next(error);
   }
-  res.json(estudiante);
 });
 
 // POST - Crear nuevo estudiante
-router.post('/', (req, res) => {
-  const { nombre, nombreEstudiante } = req.body;
-  
-  if (!nombre) {
-    return res.status(400).json({ error: 'El nombre es obligatorio' });
+router.post('/', async (req, res, next) => {
+  try {
+    const { codigo, nombre, correo, programa, semestre } = req.body;
+
+    // Validación de campos obligatorios
+    if (!codigo || !nombre || !correo || !programa || !semestre) {
+      return res.status(400).json({
+        error: 'Faltan campos obligatorios: código, nombre, correo, programa, semestre'
+      });
+    }
+
+    // Verificar código único
+    const codigoExistente = await Estudiante.findOne({ codigo: codigo.toUpperCase() });
+    if (codigoExistente) {
+      return res.status(400).json({ error: 'El código ya está registrado' });
+    }
+
+    // Verificar correo único
+    const correoExistente = await Estudiante.findOne({ correo: correo.toLowerCase() });
+    if (correoExistente) {
+      return res.status(400).json({ error: 'El correo ya está registrado' });
+    }
+
+    const nuevoEstudiante = new Estudiante({
+      codigo,
+      nombre,
+      correo,
+      programa,
+      semestre
+    });
+
+    const estudianteGuardado = await nuevoEstudiante.save();
+    res.status(201).json(estudianteGuardado);
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({
+        error: 'El código o correo ya existe en la base de datos'
+      });
+    }
+    next(error);
   }
-  
-  const nuevoEstudiante = {
-    _id: String(estudiantes.length + 1),
-    id: String(estudiantes.length + 1),
-    nombre,
-    nombreEstudiante: nombreEstudiante || nombre
-  };
-  
-  estudiantes.push(nuevoEstudiante);
-  res.status(201).json(nuevoEstudiante);
 });
 
 // PUT - Actualizar estudiante
-router.put('/:id', (req, res) => {
-  const estudiante = estudiantes.find(e => e._id === req.params.id || e.id === req.params.id);
-  if (!estudiante) {
-    return res.status(404).json({ error: 'Estudiante no encontrado' });
+router.put('/:id', async (req, res, next) => {
+  try {
+    const { codigo, nombre, correo, programa, semestre } = req.body;
+
+    // Validación de campos
+    if (!codigo || !nombre || !correo || !programa || !semestre) {
+      return res.status(400).json({
+        error: 'Todos los campos son obligatorios'
+      });
+    }
+
+    // Verificar que el nuevo código no exista (si cambió)
+    if (codigo) {
+      const estudiante = await Estudiante.findById(req.params.id);
+      if (estudiante && estudiante.codigo !== codigo.toUpperCase()) {
+        const codigoExistente = await Estudiante.findOne({
+          codigo: codigo.toUpperCase()
+        });
+        if (codigoExistente) {
+          return res.status(400).json({ error: 'El código ya está registrado' });
+        }
+      }
+    }
+
+    const estudianteActualizado = await Estudiante.findByIdAndUpdate(
+      req.params.id,
+      {
+        codigo,
+        nombre,
+        correo,
+        programa,
+        semestre
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!estudianteActualizado) {
+      return res.status(404).json({ error: 'Estudiante no encontrado' });
+    }
+
+    res.json(estudianteActualizado);
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({
+        error: 'El código o correo ya existe en la base de datos'
+      });
+    }
+    next(error);
   }
-  
-  const { nombre, nombreEstudiante } = req.body;
-  if (nombre) estudiante.nombre = nombre;
-  if (nombreEstudiante) estudiante.nombreEstudiante = nombreEstudiante;
-  
-  res.json(estudiante);
 });
 
 // DELETE - Eliminar estudiante
-router.delete('/:id', (req, res) => {
-  const index = estudiantes.findIndex(e => e._id === req.params.id || e.id === req.params.id);
-  if (index === -1) {
-    return res.status(404).json({ error: 'Estudiante no encontrado' });
+router.delete('/:id', async (req, res, next) => {
+  try {
+    const estudianteEliminado = await Estudiante.findByIdAndDelete(req.params.id);
+
+    if (!estudianteEliminado) {
+      return res.status(404).json({ error: 'Estudiante no encontrado' });
+    }
+
+    res.json({
+      mensaje: 'Estudiante eliminado correctamente',
+      estudiante: estudianteEliminado
+    });
+  } catch (error) {
+    next(error);
   }
-  
-  const eliminado = estudiantes.splice(index, 1);
-  res.json({ mensaje: 'Estudiante eliminado', estudiante: eliminado[0] });
 });
 
 module.exports = router;

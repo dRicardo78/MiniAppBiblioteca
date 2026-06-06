@@ -1,14 +1,15 @@
 // models/Evidencia.js
-// Esquema de datos para Evidencias Académicas
+// Esquema de datos para Evidencias Académicas con relación a Estudiantes
 
 const mongoose = require('mongoose');
 
 const evidenciaSchema = new mongoose.Schema(
   {
     estudiante: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Estudiante',
       required: [true, 'El estudiante es obligatorio'],
-      trim: true,
+      index: true,
     },
     tipo: {
       type: String,

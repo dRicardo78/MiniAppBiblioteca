@@ -1,28 +1,38 @@
 // models/Observacion.js
-// Esquema para observaciones pedagógicas
+// Esquema para observaciones pedagógicas con relación a estudiantes
 
 const mongoose = require('mongoose');
 
 const observacionSchema = new mongoose.Schema(
   {
-    idEstudiante: {
-      type: String,
-      required: true,
+    estudiante: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Estudiante',
+      required: [true, 'El estudiante es obligatorio'],
       index: true,
     },
-    nombreEstudiante: String,
-    observacion: {
+    comentario: {
       type: String,
-      required: true,
-      maxlength: 500,
+      required: [true, 'El comentario es obligatorio'],
+      trim: true,
+      maxlength: [500, 'Comentario máximo 500 caracteres'],
     },
     fecha: {
       type: Date,
       default: Date.now,
     },
-    asesor: String, // Nombre del asesor que registró
+    asesor: {
+      type: String,
+      trim: true,
+      maxlength: [150, 'Nombre del asesor máximo 150 caracteres'],
+    },
   },
-  { timestamps: true }
+  {
+    timestamps: true
+  }
 );
+
+// Índice para búsquedas
+observacionSchema.index({ estudiante: 1 });
 
 module.exports = mongoose.model('Observacion', observacionSchema);

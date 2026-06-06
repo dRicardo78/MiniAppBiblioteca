@@ -9,7 +9,6 @@ const connectDB = require('./config/db');
 const errorHandler = require('./middleware/errorHandler');
 
 // Importar rutas
-const librosRoutes = require('./routes/libros');
 const evidenciasRoutes = require('./routes/evidencias');
 const estudiantesRoutes = require('./routes/estudiantes');
 const observacionesRoutes = require('./routes/observaciones');
@@ -30,21 +29,19 @@ app.use(cors({
 connectDB();
 
 // Rutas API
-app.use('/api/libros', librosRoutes);
 app.use('/api/evidencias', evidenciasRoutes);
 app.use('/api/estudiantes', estudiantesRoutes);
 app.use('/api/observaciones', observacionesRoutes);
 
 // Ruta raíz para verificar que el servidor funciona
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: '✅ Servidor funcionando', 
+  res.json({
+    status: '✅ Servidor funcionando',
     timestamp: new Date().toISOString(),
     ambiente: process.env.NODE_ENV,
     endpoints: [
-      '/api/libros',
-      '/api/evidencias',
       '/api/estudiantes',
+      '/api/evidencias',
       '/api/observaciones'
     ]
   });

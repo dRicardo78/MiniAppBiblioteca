@@ -1,4 +1,4 @@
-# 📚 DOCUMENTACIÓN DE API - MiniApp Biblioteca
+# 📚 Sistema de Gestión de Evidencias Académicas - Documentación API
 
 ## Información General
 
@@ -9,24 +9,23 @@
 
 ---
 
-## LIBROS - Endpoints
+## 📋 ESTUDIANTES - Endpoints
 
-### 1. Obtener todos los libros
+### 1. Obtener todos los estudiantes
 ```http
-GET /api/libros
+GET /api/estudiantes
 ```
 
-**Ejemplo de respuesta:**
+**Respuesta:**
 ```json
 [
   {
     "_id": "507f1f77bcf86cd799439011",
-    "idLibro": "LIB001",
-    "nombre": "El Quijote",
-    "editorial": "Penguin",
-    "autor": "Miguel de Cervantes",
-    "numCopias": 5,
-    "fechaIngreso": "2024-01-15T10:30:00Z",
+    "codigo": "EST001",
+    "nombre": "Juan Pérez",
+    "correo": "juan@example.com",
+    "programa": "Ingeniería de Sistemas",
+    "semestre": 3,
     "createdAt": "2024-01-15T10:30:00Z",
     "updatedAt": "2024-01-15T10:30:00Z"
   }
@@ -35,113 +34,83 @@ GET /api/libros
 
 ---
 
-### 2. Obtener un libro específico
+### 2. Obtener estudiante por ID
 ```http
-GET /api/libros/:id
+GET /api/estudiantes/:id
 ```
 
 **Parámetro:**
-- `id`: ID de MongoDB del libro (ej: `507f1f77bcf86cd799439011`)
-
-**Ejemplo de respuesta:**
-```json
-{
-  "_id": "507f1f77bcf86cd799439011",
-  "idLibro": "LIB001",
-  "nombre": "El Quijote",
-  "editorial": "Penguin",
-  "autor": "Miguel de Cervantes",
-  "numCopias": 5,
-  "fechaIngreso": "2024-01-15T10:30:00Z"
-}
-```
+- `id`: ID de MongoDB del estudiante
 
 ---
 
-### 3. Crear nuevo libro
+### 3. Crear nuevo estudiante
 ```http
-POST /api/libros
+POST /api/estudiantes
 Content-Type: application/json
 
 {
-  "idLibro": "LIB002",
-  "nombre": "1984",
-  "editorial": "Signet",
-  "autor": "George Orwell",
-  "numCopias": 3
+  "codigo": "EST001",
+  "nombre": "Juan Pérez",
+  "correo": "juan@example.com",
+  "programa": "Ingeniería de Sistemas",
+  "semestre": 3
 }
 ```
+
+**Campos requeridos:**
+- `codigo` (string, único, se convierte a mayúsculas)
+- `nombre` (string, máx 150 caracteres)
+- `correo` (string, único, válido)
+- `programa` (enum: "Ingeniería de Sistemas", "Administración de Empresas", "Contabilidad", "Otros")
+- `semestre` (number, 1-12)
 
 **Respuesta (201 Created):**
 ```json
 {
-  "_id": "507f1f77bcf86cd799439012",
-  "idLibro": "LIB002",
-  "nombre": "1984",
-  "editorial": "Signet",
-  "autor": "George Orwell",
-  "numCopias": 3,
-  "fechaIngreso": "2024-01-15T11:00:00Z"
+  "_id": "507f1f77bcf86cd799439011",
+  "codigo": "EST001",
+  "nombre": "Juan Pérez",
+  "correo": "juan@example.com",
+  "programa": "Ingeniería de Sistemas",
+  "semestre": 3
 }
 ```
 
-**Errores:**
-- `400`: Faltan campos obligatorios o idLibro ya existe
-- `500`: Error interno del servidor
-
 ---
 
-### 4. Actualizar un libro
+### 4. Actualizar estudiante
 ```http
-PUT /api/libros/:id
+PUT /api/estudiantes/:id
 Content-Type: application/json
 
 {
-  "nombre": "1984 - Edición revisada",
-  "numCopias": 5,
-  "editorial": "Signet",
-  "autor": "George Orwell"
-}
-```
-
-**Nota:** No puedes cambiar `idLibro` (es la clave única)
-
-**Respuesta (200 OK):**
-```json
-{
-  "_id": "507f1f77bcf86cd799439012",
-  "idLibro": "LIB002",
-  "nombre": "1984 - Edición revisada",
-  "editorial": "Signet",
-  "autor": "George Orwell",
-  "numCopias": 5,
-  "fechaIngreso": "2024-01-15T11:00:00Z",
-  "updatedAt": "2024-01-15T14:30:00Z"
+  "codigo": "EST001",
+  "nombre": "Juan Carlos Pérez",
+  "correo": "jcarlos@example.com",
+  "programa": "Ingeniería de Sistemas",
+  "semestre": 4
 }
 ```
 
 ---
 
-### 5. Eliminar un libro
+### 5. Eliminar estudiante
 ```http
-DELETE /api/libros/:id
+DELETE /api/estudiantes/:id
 ```
 
 **Respuesta (200 OK):**
 ```json
 {
-  "mensaje": "Libro eliminado correctamente",
-  "libro": {
-    "_id": "507f1f77bcf86cd799439012",
-    "idLibro": "LIB002",
-    "nombre": "1984"
-  }
+  "mensaje": "Estudiante eliminado correctamente",
+  "estudiante": { /* ... */ }
 }
 ```
 
 ---
 
-## EVIDENCIAS - Endpoints
+## 📑 EVIDENCIAS - Endpoints
 
 ### 1. Obtener todas las evidencias
 ```http
@@ -149,45 +118,38 @@ GET /api/evidencias
 ```
 
 **Parámetros opcionales (query string):**
-- `?estudiante=Juan` - Filtrar por estudiante
+- `?estudiante=507f1f77bcf86cd799439011` - Filtrar por ID de estudiante
 - `?tipo=Informe` - Filtrar por tipo (Informe, Proyecto, Bitácora)
 - `?estado=Pendiente` - Filtrar por estado
-
-**Ejemplo:**
-```http
-GET /api/evidencias?estudiante=Juan&tipo=Informe&estado=Pendiente
-```
 
 **Respuesta:**
 ```json
 [
   {
     "_id": "507f1f77bcf86cd799439013",
-    "estudiante": "Juan",
+    "estudiante": {
+      "_id": "507f1f77bcf86cd799439011",
+      "codigo": "EST001",
+      "nombre": "Juan Pérez",
+      "correo": "juan@example.com",
+      "programa": "Ingeniería de Sistemas",
+      "semestre": 3
+    },
     "tipo": "Informe",
     "nombre": "Informe Final Matemáticas",
     "descripcion": "Análisis de funciones trigonométricas",
     "estado": "Pendiente",
-    "fechaCarga": "2024-01-15T15:00:00Z",
-    "archivo": {
-      "nombre": "informe.pdf",
-      "url": "https://storage.example.com/informe.pdf",
-      "tipo": "application/pdf",
-      "tamaño": 2048000
-    }
+    "fechaCarga": "2024-01-15T15:00:00Z"
   }
 ]
 ```
 
 ---
 
-### 2. Obtener una evidencia específica
+### 2. Obtener evidencia por ID
 ```http
 GET /api/evidencias/:id
 ```
-
-**Parámetro:**
-- `id`: ID de MongoDB de la evidencia
 
 ---
 
@@ -197,7 +159,7 @@ POST /api/evidencias
 Content-Type: application/json
 
 {
-  "estudiante": "Juan",
+  "estudiante": "507f1f77bcf86cd799439011",
   "tipo": "Informe",
   "nombre": "Informe Final Matemáticas",
   "descripcion": "Análisis de funciones trigonométricas",
@@ -211,25 +173,11 @@ Content-Type: application/json
 ```
 
 **Campos requeridos:**
-- `estudiante` (string)
+- `estudiante` (ObjectId válido de Estudiante)
 - `tipo` (enum: "Informe", "Proyecto", "Bitácora")
 - `nombre` (string, máx 200 caracteres)
-- `descripcion` (string, máx 1000 caracteres, **OBLIGATORIO**)
+- `descripcion` (string, máx 1000 caracteres)
 - `archivo` (opcional)
-
-**Respuesta (201 Created):**
-```json
-{
-  "_id": "507f1f77bcf86cd799439014",
-  "estudiante": "Juan",
-  "tipo": "Informe",
-  "nombre": "Informe Final Matemáticas",
-  "descripcion": "Análisis de funciones trigonométricas",
-  "estado": "Pendiente",
-  "fechaCarga": "2024-01-15T16:00:00Z",
-  "archivo": { /* ... */ }
-}
-```
 
 ---
 
@@ -240,7 +188,7 @@ Content-Type: application/json
 
 {
   "nombre": "Informe Final Matemáticas - Revisado",
-  "descripcion": "Análisis de funciones trigonométricas con ejemplos",
+  "descripcion": "Análisis con ejemplos adicionales",
   "estado": "Aprobada"
 }
 ```
@@ -254,65 +202,125 @@ Content-Type: application/json
 DELETE /api/evidencias/:id
 ```
 
-**Respuesta (200 OK):**
+---
+
+## 📝 OBSERVACIONES - Endpoints
+
+### 1. Obtener todas las observaciones
+```http
+GET /api/observaciones
+```
+
+**Parámetros opcionales:**
+- `?estudiante=507f1f77bcf86cd799439011` - Filtrar por ID de estudiante
+
+**Respuesta:**
 ```json
+[
+  {
+    "_id": "507f1f77bcf86cd799439020",
+    "estudiante": {
+      "_id": "507f1f77bcf86cd799439011",
+      "codigo": "EST001",
+      "nombre": "Juan Pérez"
+    },
+    "comentario": "Estudiante participa activamente en clase",
+    "asesor": "Mg. López",
+    "fecha": "2024-01-15T14:00:00Z"
+  }
+]
+```
+
+---
+
+### 2. Obtener observación por ID
+```http
+GET /api/observaciones/:id
+```
+
+---
+
+### 3. Crear nueva observación
+```http
+POST /api/observaciones
+Content-Type: application/json
+
 {
-  "mensaje": "Evidencia eliminada correctamente"
+  "estudiante": "507f1f77bcf86cd799439011",
+  "comentario": "Estudiante participa activamente en clase",
+  "asesor": "Mg. López"
 }
+```
+
+**Campos requeridos:**
+- `estudiante` (ObjectId válido de Estudiante)
+- `comentario` (string, máx 500 caracteres)
+- `asesor` (optional, string)
+
+---
+
+### 4. Actualizar observación
+```http
+PUT /api/observaciones/:id
+Content-Type: application/json
+
+{
+  "comentario": "Excelente desempeño en las últimas actividades",
+  "asesor": "Mg. López"
+}
+```
+
+---
+
+### 5. Eliminar observación
+```http
+DELETE /api/observaciones/:id
 ```
 
 ---
 
 ## Ejemplos de Uso desde JavaScript
 
-### Obtener todos los libros
+### Obtener estudiantes
 ```javascript
-fetch('http://localhost:5000/api/libros')
+fetch('http://localhost:5000/api/estudiantes')
   .then(res => res.json())
-  .then(libros => console.log(libros))
+  .then(estudiantes => console.log(estudiantes))
   .catch(err => console.error(err));
 ```
 
-### Crear nuevo libro
+### Crear estudiante
 ```javascript
-fetch('http://localhost:5000/api/libros', {
+fetch('http://localhost:5000/api/estudiantes', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
-    idLibro: 'LIB003',
-    nombre: 'Don Quijote',
-    editorial: 'Penguin',
-    autor: 'Cervantes',
-    numCopias: 2
+    codigo: 'EST001',
+    nombre: 'Juan Pérez',
+    correo: 'juan@example.com',
+    programa: 'Ingeniería de Sistemas',
+    semestre: 3
   })
 })
 .then(res => res.json())
-.then(libro => console.log('Libro creado:', libro))
+.then(estudiante => console.log('Estudiante creado:', estudiante))
 .catch(err => console.error(err));
 ```
 
-### Actualizar libro
+### Crear evidencia
 ```javascript
-fetch('http://localhost:5000/api/libros/507f1f77bcf86cd799439011', {
-  method: 'PUT',
+fetch('http://localhost:5000/api/evidencias', {
+  method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
-    nombre: 'Don Quijote - Edición de bolsillo',
-    numCopias: 5
+    estudiante: '507f1f77bcf86cd799439011',
+    tipo: 'Informe',
+    nombre: 'Informe Final',
+    descripcion: 'Descripción del informe'
   })
 })
 .then(res => res.json())
-.then(libro => console.log('Libro actualizado:', libro))
-.catch(err => console.error(err));
-```
-
-### Eliminar libro
-```javascript
-fetch('http://localhost:5000/api/libros/507f1f77bcf86cd799439011', {
-  method: 'DELETE'
-})
-.then(res => res.json())
-.then(resultado => console.log(resultado))
+.then(evidencia => console.log('Evidencia creada:', evidencia))
 .catch(err => console.error(err));
 ```
 
@@ -323,10 +331,10 @@ fetch('http://localhost:5000/api/libros/507f1f77bcf86cd799439011', {
 | Código | Significado | Uso |
 |--------|-------------|-----|
 | 200 | OK | GET, PUT, DELETE exitoso |
-| 201 | Created | POST exitoso (recurso creado) |
-| 400 | Bad Request | Error en validación o datos inválidos |
+| 201 | Created | POST exitoso |
+| 400 | Bad Request | Error en validación |
 | 404 | Not Found | Recurso no encontrado |
-| 500 | Server Error | Error interno del servidor |
+| 500 | Server Error | Error interno |
 
 ---
 
@@ -335,27 +343,20 @@ fetch('http://localhost:5000/api/libros/507f1f77bcf86cd799439011', {
 ```
 /MiniAppBiblioteca
 ├── config/
-│   └── db.js              # Conexión MongoDB
+│   └── db.js                    # Conexión MongoDB
 ├── models/
-│   ├── Libro.js           # Esquema de Libro
-│   └── Evidencia.js       # Esquema de Evidencia
+│   ├── Estudiante.js            # Esquema de Estudiante
+│   ├── Evidencia.js             # Esquema de Evidencia
+│   └── Observacion.js           # Esquema de Observación
 ├── routes/
-│   ├── libros.js          # Endpoints /api/libros
-│   └── evidencias.js      # Endpoints /api/evidencias
+│   ├── estudiantes.js           # Endpoints /api/estudiantes
+│   ├── evidencias.js            # Endpoints /api/evidencias
+│   └── observaciones.js         # Endpoints /api/observaciones
 ├── middleware/
-│   └── errorHandler.js    # Manejo de errores centralizado
-├── server.js              # Servidor principal
-├── package.json           # Dependencias
-├── .env                   # Variables de entorno
-└── .env.example           # Plantilla de .env
+│   └── errorHandler.js          # Manejo de errores
+├── server.js                    # Servidor principal
+├── app.js                       # Frontend
+├── package.json                 # Dependencias
+├── .env                         # Variables de entorno
+└── README.md                    # Documentación principal
 ```
-
----
-
-## Próximos Pasos
-
-1. Configurar MongoDB Atlas (ver `MONGODB_SETUP.md`)
-2. Iniciar servidor: `npm start`
-3. Actualizar frontend en `app.js` para usar estas APIs
-4. Implementar carga de archivos con FormData
-5. Agregar autenticación JWT en futuras versiones
