@@ -171,8 +171,8 @@ async function guardarEvidencia() {
     formData.append('nombre', nombre);
     formData.append('tipo', tipo);
     formData.append('descripcion', descripcion);
-    formData.append('idEstudiante', idEstudiante);
-    
+    formData.append('estudiante', idEstudiante);
+
     if (fileInput.files[0]) {
       formData.append('archivo', fileInput.files[0]);
     }
@@ -213,7 +213,7 @@ async function loadEvidenciasEstudiante() {
   }
 
   try {
-    const response = await fetch(`${API_BASE}/evidencias?idEstudiante=${idEstudiante}`);
+    const response = await fetch(`${API_BASE}/evidencias?estudiante=${idEstudiante}`);
     const evidencias = await response.json();
 
     if (!Array.isArray(evidencias) || evidencias.length === 0) {
@@ -327,7 +327,7 @@ async function loadEvidenciasTutor() {
   try {
     let url = `${API_BASE}/evidencias`;
     if (filterEstudiante) {
-      url += `?idEstudiante=${filterEstudiante}`;
+      url += `?estudiante=${filterEstudiante}`;
     }
 
     const response = await fetch(url);
@@ -466,8 +466,8 @@ async function guardarObservacion() {
       method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        idEstudiante,
-        observacion
+        estudiante: idEstudiante,
+        comentario: observacion
       })
     });
 
