@@ -5,11 +5,12 @@
 
 // ============ ESTADO GLOBAL ============
 const APP = {
-  currentView: 'evidencia-estudiante',
+  currentView: 'gestion-estudiantes',
   currentUser: null,
   estudiantes: [],
   evidencias: [],
   observaciones: [],
+  editingEstudianteId: null,
   editingEvidenciaId: null,
   editingObservacionId: null
 };
@@ -23,7 +24,8 @@ function initializeApp() {
   setupEventListeners();
   setDefaultDate();
   loadEstudiantes();
-  showView('evidencia-estudiante');
+  cargarTablaEstudiantes();
+  showView('gestion-estudiantes');
 }
 
 // ============ NAVEGACIÓN Y VISTAS ============
@@ -42,6 +44,9 @@ function setupEventListeners() {
 
   // Botón salir
   document.getElementById('btnSalir').addEventListener('click', showExitModal);
+
+  // Vista 0: Gestión de Estudiantes
+  setupEstudiantesEvents();
 
   // Vista 1: Gestión de Evidencias (Estudiante)
   setupEvidenciaEstudianteEvents();
@@ -88,7 +93,9 @@ function showView(viewName) {
     });
 
     // Cargar datos según vista
-    if (viewName === 'evidencia-estudiante') {
+    if (viewName === 'gestion-estudiantes') {
+      cargarTablaEstudiantes();
+    } else if (viewName === 'evidencia-estudiante') {
       loadEvidenciasEstudiante();
     } else if (viewName === 'evidencia-tutor') {
       loadEvidenciasTutor();
@@ -608,9 +615,198 @@ function showExitModal() {
   }
 }
 
+// ============ GESTIÓN DE ESTUDIANTES ============
+function setupEstudiantesEvents() {
+  const formEstudiante = document.getElementById('formEstudiante');
+  const btnGuardar = document.getElementById('btnGuardarEstudiante');
+  const btnLimpiar = document.getElementById('btnLimpiarEstudiante');
+
+  if (!formEstudiante) return;
+
+  // Envío de formulario
+  btnGuardar.addEventListener('click', (e) => {
+    e.preventDefault();
+    guardarEstudiante();
+  });
+
+  // Limpiar formulario
+  btnLimpiar.addEventListener('click', () => {
+    formEstudiante.reset();
+    APP.editingEstudianteId = null;
+    document.getElementById('btnGuardarEstudiante').textContent = 'Guardar Estudiante';
+  });
+
+  // Eventos de tabla (Edit/Delete)
+  document.addEventListener('click', (e) => {
+    if (e.target.dataset.action === 'edit-estudiante') {
+      editarEstudiante(e.target.dataset.id);
+    }
+    if (e.target.dataset.action === 'delete-estudiante') {
+      confirmarEliminarEstudiante(e.target.dataset.id);
+    }
+  });
+}
+
+async function cargarTablaEstudiantes() {
+  try {
+    const response = await fetch('http://localhost:5000/api/estudiantes');
+    const estudiantes = await response.json();
+
+    if (!Array.isArray(estudiantes)) return;
+
+    APP.estudiantes = estudiantes;
+
+    const tbody = document.querySelector('#tableEstudiantes tbody');
+    if (!tbody) return;
+
+    if (estudiantes.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);">No hay estudiantes registrados</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = estudiantes.map(est => `
+      <tr>
+        <td>${escapeHtml(est.codigo || '')}</td>
+        <td>${escapeHtml(est.nombre)}</td>
+        <td>${escapeHtml(est.correo)}</td>
+        <td>${escapeHtml(est.programa)}</td>
+        <td>${est.semestre}</td>
+        <td>
+          <button data-action="edit-estudiante" data-id="${est._id}" class="btn-small">Editar</button>
+          <button data-action="delete-estudiante" data-id="${est._id}" class="btn-small">Eliminar</button>
+        </td>
+      </tr>
+    `).join('');
+  } catch (error) {
+    console.error('Error cargando estudiantes:', error);
+    showMessage('Error al cargar estudiantes', 'error');
+  }
+}
+
+async function guardarEstudiante() {
+  try {
+    const codigo = document.getElementById('estCodigo').value.trim();
+    const nombre = document.getElementById('estNombre').value.trim();
+    const correo = document.getElementById('estCorreo').value.trim();
+    const programa = document.getElementById('estPrograma').value.trim();
+    const semestre = document.getElementById('estSemestre').value.trim();
+
+    // Validación
+    const errorValidacion = validarEstudiante({ codigo, nombre, correo, programa, semestre });
+    if (errorValidacion) {
+      showMessage(errorValidacion, 'error');
+      return;
+    }
+
+    let url = 'http://localhost:5000/api/estudiantes';
+    let method = 'POST';
+
+    if (APP.editingEstudianteId) {
+      url = `${url}/${APP.editingEstudianteId}`;
+      method = 'PUT';
+    }
+
+    const response = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        codigo,
+        nombre,
+        correo,
+        programa,
+        semestre: parseInt(semestre)
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Error al guardar');
+    }
+
+    const accion = APP.editingEstudianteId ? 'actualizado' : 'creado';
+    showMessage(`Estudiante ${accion} exitosamente`, 'success');
+
+    // Limpiar y recargar
+    document.getElementById('formEstudiante').reset();
+    APP.editingEstudianteId = null;
+    document.getElementById('btnGuardarEstudiante').textContent = 'Guardar Estudiante';
+
+    await cargarTablaEstudiantes();
+    await loadEstudiantes();
+  } catch (error) {
+    console.error(error);
+    showMessage(error.message || 'Error al guardar estudiante', 'error');
+  }
+}
+
+async function editarEstudiante(id) {
+  try {
+    const response = await fetch(`http://localhost:5000/api/estudiantes/${id}`);
+    const est = await response.json();
+
+    document.getElementById('estCodigo').value = est.codigo;
+    document.getElementById('estNombre').value = est.nombre;
+    document.getElementById('estCorreo').value = est.correo;
+    document.getElementById('estPrograma').value = est.programa;
+    document.getElementById('estSemestre').value = est.semestre;
+
+    APP.editingEstudianteId = id;
+    document.getElementById('btnGuardarEstudiante').textContent = 'Actualizar Estudiante';
+
+    document.querySelector('.form-section').scrollIntoView({ behavior: 'smooth' });
+  } catch (error) {
+    console.error(error);
+    showMessage('Error al cargar estudiante', 'error');
+  }
+}
+
+function confirmarEliminarEstudiante(id) {
+  if (confirm('¿Desea eliminar este estudiante?\n\nNota: Se eliminarán todas sus evidencias y observaciones asociadas.')) {
+    eliminarEstudiante(id);
+  }
+}
+
+async function eliminarEstudiante(id) {
+  try {
+    const response = await fetch(`http://localhost:5000/api/estudiantes/${id}`, {
+      method: 'DELETE'
+    });
+
+    if (!response.ok) throw new Error('Error al eliminar');
+
+    showMessage('Estudiante eliminado exitosamente', 'success');
+    await cargarTablaEstudiantes();
+    await loadEstudiantes();
+  } catch (error) {
+    console.error(error);
+    showMessage('Error al eliminar estudiante', 'error');
+  }
+}
+
+function validarEstudiante({ codigo, nombre, correo, programa, semestre }) {
+  if (!codigo) return 'El código es obligatorio';
+  if (!nombre) return 'El nombre es obligatorio';
+  if (nombre.length < 3) return 'El nombre debe tener al menos 3 caracteres';
+  if (!correo) return 'El correo es obligatorio';
+
+  // Validar formato email
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(correo)) return 'El correo no tiene un formato válido';
+
+  if (!programa) return 'El programa es obligatorio';
+  if (!semestre) return 'El semestre es obligatorio';
+
+  const semestreNum = parseInt(semestre);
+  if (isNaN(semestreNum) || semestreNum < 1 || semestreNum > 12) {
+    return 'El semestre debe ser un número entre 1 y 12';
+  }
+
+  return null; // Sin errores
+}
+
 // ============ UTILIDADES DE INTERFAZ ============
 window.addEventListener('beforeunload', (e) => {
-  if (APP.editingEvidenciaId || APP.editingObservacionId) {
+  if (APP.editingEstudianteId || APP.editingEvidenciaId || APP.editingObservacionId) {
     e.preventDefault();
     e.returnValue = '';
   }

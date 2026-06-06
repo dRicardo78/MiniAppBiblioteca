@@ -23,6 +23,7 @@
             <li>
               <button class="menu-toggle" data-target="submenu-estudiantes" aria-expanded="false">📚 Estudiantes</button>
               <ul id="submenu-estudiantes" class="submenu" style="display:none;margin:0.5rem 0 1rem 0;padding-left:1rem;">
+                <li><button class="menu-item" data-view="gestion-estudiantes">Gestión de Estudiantes</button></li>
                 <li><button class="menu-item" data-view="evidencia-estudiante">Gestión de Evidencias</button></li>
               </ul>
             </li>
@@ -48,6 +49,79 @@
           <button id="btnSalir" style="min-width:120px;">Salir</button>
         </div>
       </aside>
+
+      <!-- ===== VISTA 0: GESTIÓN DE ESTUDIANTES ===== -->
+      <section id="view-gestion-estudiantes" class="view-panel" style="display:none;">
+        <div class="panel-header">
+          <h2>Gestión de Estudiantes</h2>
+        </div>
+
+        <div class="panel-content">
+          <form id="formEstudiante" class="estudiante-form">
+            <div class="form-section">
+              <h3>Información del Estudiante</h3>
+
+              <div class="field-group">
+                <label for="estCodigo">Código <span class="required">*</span></label>
+                <input type="text" id="estCodigo" class="input-text" maxlength="20" placeholder="Ej: EST001" required>
+              </div>
+
+              <div class="field-group">
+                <label for="estNombre">Nombre <span class="required">*</span></label>
+                <input type="text" id="estNombre" class="input-text" maxlength="150" placeholder="Ej: Juan Pérez" required>
+              </div>
+
+              <div class="field-group">
+                <label for="estCorreo">Correo <span class="required">*</span></label>
+                <input type="email" id="estCorreo" class="input-text" maxlength="100" placeholder="Ej: juan@example.com" required>
+              </div>
+
+              <div class="field-group">
+                <label for="estPrograma">Programa <span class="required">*</span></label>
+                <select id="estPrograma" class="input-select" required>
+                  <option value="">-- Seleccione programa --</option>
+                  <option value="Ingeniería de Sistemas">Ingeniería de Sistemas</option>
+                  <option value="Administración de Empresas">Administración de Empresas</option>
+                  <option value="Contabilidad">Contabilidad</option>
+                  <option value="Otros">Otros</option>
+                </select>
+              </div>
+
+              <div class="field-group">
+                <label for="estSemestre">Semestre <span class="required">*</span></label>
+                <input type="number" id="estSemestre" class="input-text" min="1" max="12" placeholder="Ej: 3" required>
+              </div>
+            </div>
+
+            <div class="button-group">
+              <button type="reset" id="btnLimpiarEstudiante">Limpiar</button>
+              <button type="submit" id="btnGuardarEstudiante" class="btn-primary">Guardar Estudiante</button>
+            </div>
+          </form>
+
+          <!-- Tabla de estudiantes -->
+          <div class="table-section">
+            <h3>Listado de Estudiantes</h3>
+            <div class="table-wrap">
+              <table id="tableEstudiantes">
+                <thead>
+                  <tr>
+                    <th>Código</th>
+                    <th>Nombre</th>
+                    <th>Correo</th>
+                    <th>Programa</th>
+                    <th>Semestre</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td colspan="6" style="text-align:center;color:var(--muted);">Cargando...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <!-- ===== VISTA 1: GESTIÓN DE EVIDENCIAS (ESTUDIANTE) ===== -->
       <section id="view-evidencia-estudiante" class="view-panel" style="display:none;">
