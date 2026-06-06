@@ -15,6 +15,10 @@ const APP = {
   editingObservacionId: null
 };
 
+// ============ CONFIGURACIÓN API ============
+// Construir URL base dinámicamente según el origen actual
+const API_BASE = window.location.origin + '/api';
+
 // ============ INICIALIZACIÓN ============
 document.addEventListener('DOMContentLoaded', () => {
   initializeApp();
@@ -173,7 +177,7 @@ async function guardarEvidencia() {
       formData.append('archivo', fileInput.files[0]);
     }
 
-    let url = 'http://localhost:5000/api/evidencias';
+    let url = `${API_BASE}/evidencias`;
     let method = 'POST';
 
     if (APP.editingEvidenciaId) {
@@ -209,7 +213,7 @@ async function loadEvidenciasEstudiante() {
   }
 
   try {
-    const response = await fetch(`http://localhost:5000/api/evidencias?idEstudiante=${idEstudiante}`);
+    const response = await fetch(`${API_BASE}/evidencias?idEstudiante=${idEstudiante}`);
     const evidencias = await response.json();
 
     if (!Array.isArray(evidencias) || evidencias.length === 0) {
@@ -239,7 +243,7 @@ async function loadEvidenciasEstudiante() {
 
 async function editarEvidencia(id) {
   try {
-    const response = await fetch(`http://localhost:5000/api/evidencias/${id}`);
+    const response = await fetch(`${API_BASE}/evidencias/${id}`);
     const ev = await response.json();
 
     document.getElementById('evidTipo').value = ev.tipo;
@@ -265,7 +269,7 @@ async function confirmarEliminarEvidencia(id) {
 
 async function eliminarEvidencia(id) {
   try {
-    const response = await fetch(`http://localhost:5000/api/evidencias/${id}`, {
+    const response = await fetch(`${API_BASE}/evidencias/${id}`, {
       method: 'DELETE'
     });
 
@@ -321,7 +325,7 @@ async function loadEvidenciasTutor() {
   if (!tbody) return;
 
   try {
-    let url = 'http://localhost:5000/api/evidencias';
+    let url = `${API_BASE}/evidencias`;
     if (filterEstudiante) {
       url += `?idEstudiante=${filterEstudiante}`;
     }
@@ -356,7 +360,7 @@ async function loadEvidenciasTutor() {
 
 async function abrirModalRevision(id) {
   try {
-    const response = await fetch(`http://localhost:5000/api/evidencias/${id}`);
+    const response = await fetch(`${API_BASE}/evidencias/${id}`);
     const ev = await response.json();
 
     document.getElementById('revIdEstudiante').value = ev.idEstudiante || '';
@@ -399,7 +403,7 @@ async function guardarRevision(e) {
   }
 
   try {
-    const response = await fetch(`http://localhost:5000/api/evidencias/${id}`, {
+    const response = await fetch(`${API_BASE}/evidencias/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -455,8 +459,8 @@ async function guardarObservacion() {
   try {
     const method = APP.editingObservacionId ? 'PUT' : 'POST';
     const url = APP.editingObservacionId 
-      ? `http://localhost:5000/api/observaciones/${APP.editingObservacionId}`
-      : 'http://localhost:5000/api/observaciones';
+      ? `${API_BASE}/observaciones/${APP.editingObservacionId}`
+      : `${API_BASE}/observaciones`;
 
     const response = await fetch(url, {
       method,
@@ -484,7 +488,7 @@ async function loadObservaciones() {
   if (!tbody) return;
 
   try {
-    const response = await fetch('http://localhost:5000/api/observaciones');
+    const response = await fetch(`${API_BASE}/observaciones`);
     const observaciones = await response.json();
 
     if (!Array.isArray(observaciones) || observaciones.length === 0) {
@@ -513,7 +517,7 @@ async function loadObservaciones() {
 async function confirmarEliminarObservacion(id) {
   if (confirm('¿Desea eliminar esta observación?')) {
     try {
-      const response = await fetch(`http://localhost:5000/api/observaciones/${id}`, {
+      const response = await fetch(`${API_BASE}/observaciones/${id}`, {
         method: 'DELETE'
       });
 
@@ -530,7 +534,7 @@ async function confirmarEliminarObservacion(id) {
 // ============ FUNCIONES AUXILIARES ============
 async function loadEstudiantes() {
   try {
-    const response = await fetch('http://localhost:5000/api/estudiantes');
+    const response = await fetch(`${API_BASE}/estudiantes`);
     const estudiantes = await response.json();
 
     if (!Array.isArray(estudiantes)) return;
@@ -649,7 +653,7 @@ function setupEstudiantesEvents() {
 
 async function cargarTablaEstudiantes() {
   try {
-    const response = await fetch('http://localhost:5000/api/estudiantes');
+    const response = await fetch(`${API_BASE}/estudiantes`);
     const estudiantes = await response.json();
 
     if (!Array.isArray(estudiantes)) return;
@@ -698,7 +702,7 @@ async function guardarEstudiante() {
       return;
     }
 
-    let url = 'http://localhost:5000/api/estudiantes';
+    let url = '`${API_BASE}/estudiantes';
     let method = 'POST';
 
     if (APP.editingEstudianteId) {
@@ -741,7 +745,7 @@ async function guardarEstudiante() {
 
 async function editarEstudiante(id) {
   try {
-    const response = await fetch(`http://localhost:5000/api/estudiantes/${id}`);
+    const response = await fetch(`${API_BASE}/estudiantes/${id}`);
     const est = await response.json();
 
     document.getElementById('estCodigo').value = est.codigo;
@@ -768,7 +772,7 @@ function confirmarEliminarEstudiante(id) {
 
 async function eliminarEstudiante(id) {
   try {
-    const response = await fetch(`http://localhost:5000/api/estudiantes/${id}`, {
+    const response = await fetch(`${API_BASE}/estudiantes/${id}`, {
       method: 'DELETE'
     });
 
