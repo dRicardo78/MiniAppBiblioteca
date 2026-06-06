@@ -702,7 +702,7 @@ async function guardarEstudiante() {
       return;
     }
 
-    let url = '`${API_BASE}/estudiantes';
+    let url = `${API_BASE}/estudiantes`;
     let method = 'POST';
 
     if (APP.editingEstudianteId) {
